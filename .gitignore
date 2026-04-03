@@ -10,6 +10,12 @@ __pycache__/
 venv/
 backend/venv/
 
+# Runtime data
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/outputs/*
+!backend/outputs/.gitkeep
+
 # Node / frontend
 node_modules/
 frontend/node_modules/
