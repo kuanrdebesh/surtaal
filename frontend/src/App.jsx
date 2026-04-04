@@ -316,7 +316,13 @@ export default function App() {
           />
         </div>
         <div data-tool-section="pitch" style={{ display: active === "pitch"    ? "block" : "none", height: "100%" }}>
-          <PitchShifter  state={toolState.pitch} setState={u => updateToolState("pitch", u)} libraryItems={libraryItems} onSaveToLibrary={saveItemToLibrary} />
+          <PitchShifter
+            state={toolState.pitch}
+            setState={u => updateToolState("pitch", u)}
+            libraryItems={libraryItems}
+            onSaveToLibrary={saveItemToLibrary}
+            onAddToWorkshop={addResultsToWorkshop}
+          />
         </div>
         <div data-tool-section="bpm" style={{ display: active === "bpm"      ? "block" : "none", height: "100%" }}>
           <BpmTool       state={toolState.bpm}   setState={u => updateToolState("bpm", u)} libraryItems={libraryItems} onSaveToLibrary={saveItemToLibrary} />

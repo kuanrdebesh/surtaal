@@ -37,7 +37,7 @@ function KeyBadge({ keyName, mode, label, dim }) {
   );
 }
 
-export default function PitchShifter({ libraryItems, onSaveToLibrary }) {
+export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWorkshop }) {
   const [file, setFile] = useState(null);
   const [semitones, setSemitones] = useState(0);
   const [cents, setCents] = useState(0);
@@ -197,7 +197,16 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary }) {
       </button>
       {noChange && file && <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Adjust semitones or cents to enable processing.</p>}
 
-      <JobStatus status={status} progress={progress} results={results} error={error} downloadUrl={downloadUrl} onDismiss={reset} onSaveToLibrary={onSaveToLibrary} />
+      <JobStatus
+        status={status}
+        progress={progress}
+        results={results}
+        error={error}
+        downloadUrl={downloadUrl}
+        onAddToWorkshop={onAddToWorkshop}
+        onDismiss={reset}
+        onSaveToLibrary={onSaveToLibrary}
+      />
     </div>
   );
 }
