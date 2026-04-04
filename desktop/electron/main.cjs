@@ -3,17 +3,31 @@ const fs = require("fs");
 const http = require("http");
 const net = require("net");
 const { spawn } = require("child_process");
-const { app, BrowserWindow, dialog } = require("electron");
+const { app, BrowserWindow, dialog, nativeImage } = require("electron");
 
 const DEFAULT_API_PORT = Number(process.env.SURTAAL_API_PORT || "8000");
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const DEV_BACKEND_DIR = path.join(REPO_ROOT, "backend");
 const APP_FRONTEND_DIST = path.join(REPO_ROOT, "frontend", "dist", "index.html");
+const APP_NAME = "SurTaal";
+const DEV_PNG_ICON = path.join(REPO_ROOT, "desktop", "resources", "icon.png");
+const DEV_SVG_ICON = path.join(REPO_ROOT, "frontend", "public", "surtaal-mark.svg");
 
 let backendProcess = null;
 let mainWindow = null;
 let apiPort = DEFAULT_API_PORT;
 let apiBase = `http://127.0.0.1:${DEFAULT_API_PORT}`;
+
+app.setName(APP_NAME);
+if (app.setAppUserModelId) {
+  app.setAppUserModelId("com.surtaal.desktop");
+}
+if (app.dock?.setIcon) {
+  const iconPath = fs.existsSync(DEV_PNG_ICON) ? DEV_PNG_ICON : DEV_SVG_ICON;
+  if (fs.existsSync(iconPath)) {
+    app.dock.setIcon(nativeImage.createFromPath(iconPath));
+  }
+}
 
 function isPortFree(port) {
   return new Promise((resolve) => {
@@ -194,7 +208,8 @@ async function createWindow() {
     minWidth: 1200,
     minHeight: 820,
     backgroundColor: "#121218",
-    title: "Surtaal",
+    title: APP_NAME,
+    icon: fs.existsSync(DEV_PNG_ICON) ? DEV_PNG_ICON : DEV_SVG_ICON,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,

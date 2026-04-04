@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DropZone, JobStatus, FormatPicker, UploadedAudioPreview } from "./Shared";
+import { DropZone, JobStatus, FormatPicker, UploadedAudioPreview, LibraryPickerButton } from "./Shared";
 import { API_BASE } from "../config";
 import { useJob } from "../useJob";
 
@@ -37,7 +37,7 @@ function KeyBadge({ keyName, mode, label, dim }) {
   );
 }
 
-export default function PitchShifter() {
+export default function PitchShifter({ libraryItems, onSaveToLibrary }) {
   const [file, setFile] = useState(null);
   const [semitones, setSemitones] = useState(0);
   const [cents, setCents] = useState(0);
@@ -92,7 +92,10 @@ export default function PitchShifter() {
       </div>
 
       <div className="section">
-        <p className="section-label">Upload Audio</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <p className="section-label" style={{ marginBottom: 0 }}>Upload Audio</p>
+          <LibraryPickerButton onPickFile={handleFile} libraryItems={libraryItems} />
+        </div>
         <DropZone onFile={handleFile} label="Drop a track — key will be detected automatically" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
         {detecting && (
@@ -194,7 +197,7 @@ export default function PitchShifter() {
       </button>
       {noChange && file && <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Adjust semitones or cents to enable processing.</p>}
 
-      <JobStatus status={status} progress={progress} results={results} error={error} downloadUrl={downloadUrl} onDismiss={reset} />
+      <JobStatus status={status} progress={progress} results={results} error={error} downloadUrl={downloadUrl} onDismiss={reset} onSaveToLibrary={onSaveToLibrary} />
     </div>
   );
 }

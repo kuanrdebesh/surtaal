@@ -7,11 +7,13 @@ import os
 import uuid
 import shutil
 import asyncio
+import json
 from pathlib import Path
 from typing import Optional
 import logging
 import mimetypes
-from runtime import UPLOAD_DIR, OUTPUT_DIR, configure_runtime_environment
+from threading import Lock
+from runtime import UPLOAD_DIR, OUTPUT_DIR, LIBRARY_DIR, configure_runtime_environment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,6 +31,8 @@ app.add_middleware(
 )
 
 job_status = {}
+library_lock = Lock()
+LIBRARY_INDEX_PATH = LIBRARY_DIR / "index.json"
 
 def _safe_stem(name: str) -> str:
     stem = Path(name or "track").stem.strip()
@@ -45,9 +49,89 @@ def save_upload(file: UploadFile) -> Path:
         shutil.copyfileobj(file.file, f)
     return path
 
+def _resolve_download_path(filename: str) -> Optional[Path]:
+    for base in (OUTPUT_DIR, LIBRARY_DIR):
+        candidate = base / filename
+        if candidate.exists():
+            return candidate
+    return None
+
+def _load_library_index() -> list[dict]:
+    if not LIBRARY_INDEX_PATH.exists():
+        return []
+    try:
+        return json.loads(LIBRARY_INDEX_PATH.read_text("utf-8"))
+    except Exception:
+        return []
+
+def _write_library_index(items: list[dict]) -> None:
+    LIBRARY_INDEX_PATH.write_text(json.dumps(items, indent=2), encoding="utf-8")
+
+def _save_file_to_library(source_path: Path, display_name: str, source_kind: str) -> dict:
+    ext = source_path.suffix or ".mp3"
+    safe_name = _safe_stem(display_name or source_path.name)
+    dest_name = f"{safe_name}__{uuid.uuid4().hex[:10]}{ext}"
+    dest_path = LIBRARY_DIR / dest_name
+    shutil.copy2(source_path, dest_path)
+    item = {
+        "id": uuid.uuid4().hex,
+        "filename": dest_name,
+        "display_name": display_name or source_path.name,
+        "source_kind": source_kind,
+        "created_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+    }
+    with library_lock:
+        items = _load_library_index()
+        items.insert(0, item)
+        _write_library_index(items)
+    return item
+
 @app.get("/health")
 def health():
     return {"status": "ok", "message": "Surtaal backend is running"}
+
+@app.get("/api/library")
+def list_library():
+    with library_lock:
+        return {"items": _load_library_index()}
+
+@app.post("/api/library/save-existing")
+async def save_existing_to_library(
+    filename: str = Form(...),
+    display_name: Optional[str] = Form(None),
+):
+    source = _resolve_download_path(filename)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source file not found")
+    item = _save_file_to_library(source, display_name or Path(filename).name, "result")
+    return item
+
+@app.post("/api/library/upload")
+async def save_upload_to_library(
+    file: UploadFile = File(...),
+    display_name: Optional[str] = Form(None),
+):
+    temp_path = save_upload(file)
+    try:
+        item = _save_file_to_library(temp_path, display_name or file.filename or temp_path.name, "upload")
+        return item
+    finally:
+        if temp_path.exists():
+            os.remove(temp_path)
+
+@app.post("/api/library/delete")
+async def delete_library_item(item_id: str = Form(...)):
+    with library_lock:
+        items = _load_library_index()
+        item = next((entry for entry in items if entry.get("id") == item_id), None)
+        if not item:
+            raise HTTPException(status_code=404, detail="Library item not found")
+        items = [entry for entry in items if entry.get("id") != item_id]
+        _write_library_index(items)
+    path = LIBRARY_DIR / item["filename"]
+    if path.exists():
+        path.unlink()
+    return {"ok": True, "id": item_id}
 
 @app.get("/job/{job_id}")
 def get_job(job_id: str):
@@ -57,8 +141,8 @@ def get_job(job_id: str):
 
 @app.get("/download/{filename}")
 def download_file(filename: str, range_header: Optional[str] = Header(None, alias="Range")):
-    path = OUTPUT_DIR / filename
-    if not path.exists():
+    path = _resolve_download_path(filename)
+    if not path:
         raise HTTPException(status_code=404, detail="File not found")
 
     file_size = path.stat().st_size
@@ -269,6 +353,219 @@ async def _tempo_change_task(job_id: str, input_path: Path, factor: float, outpu
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
     except Exception as e:
         logger.error(f"Tempo change failed: {e}")
+        job_status[job_id] = {"status": "error", "message": str(e)}
+    finally:
+        if input_path.exists():
+            os.remove(input_path)
+
+# ── 4C. AUDIO CLEANUP ───────────────────────────────────────────────────────
+
+@app.post("/api/audio-cleanup")
+async def audio_cleanup(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    remove_noise: bool = Form(True),
+    noise_strength: int = Form(40),
+    remove_hum: bool = Form(False),
+    hum_frequency: int = Form(50),
+    low_cut_hz: int = Form(0),
+    high_cut_hz: int = Form(0),
+    remove_frequency_band: bool = Form(False),
+    band_low_hz: int = Form(0),
+    band_high_hz: int = Form(0),
+    band_strength: int = Form(50),
+    add_eq_lift: bool = Form(False),
+    eq_amount: int = Form(45),
+    add_compressor: bool = Form(False),
+    compressor_amount: int = Form(50),
+    add_limiter: bool = Form(False),
+    limiter_ceiling_db: float = Form(-1.2),
+    add_stereo_widen: bool = Form(False),
+    stereo_widen_amount: int = Form(42),
+    add_telephone: bool = Form(False),
+    telephone_amount: int = Form(45),
+    add_tremolo: bool = Form(False),
+    tremolo_rate_hz: float = Form(4.5),
+    tremolo_depth: int = Form(48),
+    add_phaser: bool = Form(False),
+    phaser_rate_hz: float = Form(0.55),
+    phaser_depth: int = Form(45),
+    add_flanger: bool = Form(False),
+    flanger_depth: int = Form(42),
+    flanger_speed_hz: float = Form(0.45),
+    add_saturation: bool = Form(False),
+    saturation_amount: int = Form(36),
+    add_reverse_reverb: bool = Form(False),
+    reverse_reverb_amount: int = Form(44),
+    add_reverb: bool = Form(False),
+    reverb_amount: int = Form(35),
+    add_echo: bool = Form(False),
+    echo_delay_ms: int = Form(220),
+    echo_feedback: int = Form(28),
+    add_chorus: bool = Form(False),
+    chorus_depth: int = Form(38),
+    normalize: bool = Form(True),
+    selected_start_ms: int = Form(0),
+    selected_end_ms: Optional[int] = Form(None),
+    output_format: str = Form("mp3"),
+):
+    input_path = save_upload(file)
+    job_id = str(uuid.uuid4())
+    job_status[job_id] = {"status": "processing", "progress": 0}
+    background_tasks.add_task(
+        _audio_cleanup_task,
+        job_id,
+        input_path,
+        remove_noise,
+        noise_strength,
+        remove_hum,
+        hum_frequency,
+        low_cut_hz,
+        high_cut_hz,
+        remove_frequency_band,
+        band_low_hz,
+        band_high_hz,
+        band_strength,
+        add_eq_lift,
+        eq_amount,
+        add_compressor,
+        compressor_amount,
+        add_limiter,
+        limiter_ceiling_db,
+        add_stereo_widen,
+        stereo_widen_amount,
+        add_telephone,
+        telephone_amount,
+        add_tremolo,
+        tremolo_rate_hz,
+        tremolo_depth,
+        add_phaser,
+        phaser_rate_hz,
+        phaser_depth,
+        add_flanger,
+        flanger_depth,
+        flanger_speed_hz,
+        add_saturation,
+        saturation_amount,
+        add_reverse_reverb,
+        reverse_reverb_amount,
+        add_reverb,
+        reverb_amount,
+        add_echo,
+        echo_delay_ms,
+        echo_feedback,
+        add_chorus,
+        chorus_depth,
+        normalize,
+        selected_start_ms,
+        selected_end_ms,
+        output_format,
+    )
+    return {"job_id": job_id}
+
+async def _audio_cleanup_task(
+    job_id: str,
+    input_path: Path,
+    remove_noise: bool,
+    noise_strength: int,
+    remove_hum: bool,
+    hum_frequency: int,
+    low_cut_hz: int,
+    high_cut_hz: int,
+    remove_frequency_band: bool,
+    band_low_hz: int,
+    band_high_hz: int,
+    band_strength: int,
+    add_eq_lift: bool,
+    eq_amount: int,
+    add_compressor: bool,
+    compressor_amount: int,
+    add_limiter: bool,
+    limiter_ceiling_db: float,
+    add_stereo_widen: bool,
+    stereo_widen_amount: int,
+    add_telephone: bool,
+    telephone_amount: int,
+    add_tremolo: bool,
+    tremolo_rate_hz: float,
+    tremolo_depth: int,
+    add_phaser: bool,
+    phaser_rate_hz: float,
+    phaser_depth: int,
+    add_flanger: bool,
+    flanger_depth: int,
+    flanger_speed_hz: float,
+    add_saturation: bool,
+    saturation_amount: int,
+    add_reverse_reverb: bool,
+    reverse_reverb_amount: int,
+    add_reverb: bool,
+    reverb_amount: int,
+    add_echo: bool,
+    echo_delay_ms: int,
+    echo_feedback: int,
+    add_chorus: bool,
+    chorus_depth: int,
+    normalize: bool,
+    selected_start_ms: int,
+    selected_end_ms: Optional[int],
+    output_format: str,
+):
+    try:
+        from audio_cleanup import cleanup_audio
+        job_status[job_id]["progress"] = 12
+        result = await asyncio.to_thread(
+            cleanup_audio,
+            input_path,
+            remove_noise=remove_noise,
+            noise_strength=noise_strength,
+            remove_hum=remove_hum,
+            hum_frequency=hum_frequency,
+            low_cut_hz=low_cut_hz,
+            high_cut_hz=high_cut_hz,
+            remove_frequency_band=remove_frequency_band,
+            band_low_hz=band_low_hz,
+            band_high_hz=band_high_hz,
+            band_strength=band_strength,
+            add_eq_lift=add_eq_lift,
+            eq_amount=eq_amount,
+            add_compressor=add_compressor,
+            compressor_amount=compressor_amount,
+            add_limiter=add_limiter,
+            limiter_ceiling_db=limiter_ceiling_db,
+            add_stereo_widen=add_stereo_widen,
+            stereo_widen_amount=stereo_widen_amount,
+            add_telephone=add_telephone,
+            telephone_amount=telephone_amount,
+            add_tremolo=add_tremolo,
+            tremolo_rate_hz=tremolo_rate_hz,
+            tremolo_depth=tremolo_depth,
+            add_phaser=add_phaser,
+            phaser_rate_hz=phaser_rate_hz,
+            phaser_depth=phaser_depth,
+            add_flanger=add_flanger,
+            flanger_depth=flanger_depth,
+            flanger_speed_hz=flanger_speed_hz,
+            add_saturation=add_saturation,
+            saturation_amount=saturation_amount,
+            add_reverse_reverb=add_reverse_reverb,
+            reverse_reverb_amount=reverse_reverb_amount,
+            add_reverb=add_reverb,
+            reverb_amount=reverb_amount,
+            add_echo=add_echo,
+            echo_delay_ms=echo_delay_ms,
+            echo_feedback=echo_feedback,
+            add_chorus=add_chorus,
+            chorus_depth=chorus_depth,
+            normalize=normalize,
+            selected_start_ms=selected_start_ms,
+            selected_end_ms=selected_end_ms,
+            output_format=output_format,
+            progress_cb=lambda progress: job_status.get(job_id, {}).update(progress=progress),
+        )
+        job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except Exception as e:
+        logger.error(f"Audio enhancement failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
         if input_path.exists():

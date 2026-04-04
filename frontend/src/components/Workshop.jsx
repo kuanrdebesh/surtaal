@@ -8,10 +8,14 @@ import { useState, useEffect, useRef } from 'react';
 import { mixer } from './mixer.js';
 import { buildWaveData, drawWave, drawRuler } from './waveform.js';
 import { API_BASE } from "../config";
+import { LibraryPickerButton, SaveToLibraryButton } from "./Shared";
 
-const LEFT_W  = 200;
-const TRACK_H = 260;  // track row height (matches panel)
-const PANEL_H = 260;  // left panel height (taller for pitch/tempo controls)
+const DEFAULT_LEFT_W = 200;
+const MIN_LEFT_W = 180;
+const MAX_LEFT_W = 420;
+const DEFAULT_ROW_H = 260;
+const MIN_ROW_H = 180;
+const MAX_ROW_H = 420;
 const TAALS   = [
   { name: 'Teentaal',  beats: 16, vibhag: [4,4,4,4] },
   { name: 'Ektaal',    beats: 12, vibhag: [2,2,2,2,2,2] },
@@ -77,18 +81,38 @@ function isEmptyTrack(track) {
   return !track.file && (!track.clips || track.clips.length === 0);
 }
 
+function hasLoadedAudio(track) {
+  return !!track?.file && !!track?.clips?.some((clip) => clip.buffer || clip.duration);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Pitch & Tempo panel (embedded in track panel)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NOTE_NAMES  = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const SWARA_NAMES = ['Sa','Re♭','Re','Ga♭','Ga','Ma','Ma#','Pa','Dha♭','Dha','Ni♭','Ni'];
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
+const clampLeftWidth = (width) => Math.max(MIN_LEFT_W, Math.min(MAX_LEFT_W, width));
+const clampRowHeight = (height) => Math.max(MIN_ROW_H, Math.min(MAX_ROW_H, height));
+
+const getInitialLeftWidth = () => {
+  if (typeof window === 'undefined') return DEFAULT_LEFT_W;
+  const stored = Number(window.localStorage.getItem('surtaal-workshop-left-width'));
+  return Number.isFinite(stored) && stored > 0 ? clampLeftWidth(stored) : DEFAULT_LEFT_W;
+};
+
+const getInitialRowHeight = () => {
+  if (typeof window === 'undefined') return DEFAULT_ROW_H;
+  const stored = Number(window.localStorage.getItem('surtaal-workshop-row-height'));
+  return Number.isFinite(stored) && stored > 0 ? clampRowHeight(stored) : DEFAULT_ROW_H;
+};
 
 function PitchTempoControls({ track, onReplaceClip }) {
   const [semitones, setSemitones]     = useState(0);
   const [tempoFactor, setTempoFactor] = useState(1.0);
   const [status, setStatus]           = useState(null);
-  const [detectedKey, setDetectedKey] = useState(null);
+  const [keyState, setKeyState]       = useState(null);
   const [detecting, setDetecting]     = useState(false);
   const pollRef = useRef();
 
@@ -110,13 +134,20 @@ function PitchTempoControls({ track, onReplaceClip }) {
     try {
       const r    = await fetch(`${API_BASE}/api/detect-key`, { method: 'POST', body: fd });
       const data = await r.json();
-      setDetectedKey(data);
+      setKeyState((prev) => ({
+        originalKey: prev?.originalKey || data.key,
+        currentKey: data.key,
+        mode: data.mode,
+        confidence: data.confidence,
+      }));
     } catch {}
     setDetecting(false);
   };
 
-  const newKey = detectedKey
-    ? NOTE_NAMES[(NOTE_NAMES.indexOf(detectedKey.key) + semitones + 1200) % 12]
+  const currentKey = keyState?.currentKey || null;
+  const originalKey = keyState?.originalKey || null;
+  const newKey = currentKey
+    ? NOTE_NAMES[(NOTE_NAMES.indexOf(currentKey) + semitones + 1200) % 12]
     : null;
 
   // Wait for a job and return the processed file
@@ -168,9 +199,9 @@ function PitchTempoControls({ track, onReplaceClip }) {
       await onReplaceClip(track.id, currentFile);
 
       // Update key display to reflect applied shift
-      if (detectedKey && semitones !== 0) {
-        const idx = (NOTE_NAMES.indexOf(detectedKey.key) + semitones + 1200) % 12;
-        setDetectedKey({ ...detectedKey, key: NOTE_NAMES[idx] });
+      if (keyState && semitones !== 0) {
+        const idx = (NOTE_NAMES.indexOf(currentKey) + semitones + 1200) % 12;
+        setKeyState((prev) => prev ? { ...prev, currentKey: NOTE_NAMES[idx] } : prev);
       }
       setSemitones(0);
       setTempoFactor(1.0);
@@ -192,20 +223,37 @@ function PitchTempoControls({ track, onReplaceClip }) {
             color: 'var(--muted)', flexShrink: 0 }}>
           {detecting ? '...' : '🎵 Detect Key'}
         </button>
-        {detectedKey && (
+        {keyState && (
           <span style={{ fontSize: 9, color: 'var(--muted)', fontFamily: 'monospace' }}>
-            {detectedKey.key} {detectedKey.mode}
+            {currentKey} {keyState.mode}
             {newKey && semitones !== 0 && ` → ${newKey}`}
           </span>
         )}
       </div>
 
+      {keyState && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4, marginBottom: 6 }}>
+          <div style={{ padding: '4px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg3)' }}>
+            <div style={{ fontSize: 7, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Original</div>
+            <div style={{ fontSize: 10, color: 'var(--text)', fontFamily: 'monospace' }}>{originalKey} {keyState.mode}</div>
+          </div>
+          <div style={{ padding: '4px 5px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg3)' }}>
+            <div style={{ fontSize: 7, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {semitones !== 0 ? 'New' : 'Current'}
+            </div>
+            <div style={{ fontSize: 10, color: semitones !== 0 ? 'var(--accent)' : 'var(--text)', fontFamily: 'monospace' }}>
+              {(semitones !== 0 ? newKey : currentKey) || '—'} {keyState.mode}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Semitone slider */}
       <div style={{ marginBottom: 5 }}>
         <div style={{ fontSize: 8, color: 'var(--muted)', marginBottom: 1 }}>
           Key {semitones > 0 ? '+' : ''}{semitones} st
-          {detectedKey && semitones !== 0 && (
-            <span style={{ color: 'var(--accent)' }}> ({detectedKey.key}→{newKey})</span>
+          {currentKey && semitones !== 0 && (
+            <span style={{ color: 'var(--accent)' }}> ({currentKey}→{newKey})</span>
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -253,7 +301,7 @@ function PitchTempoControls({ track, onReplaceClip }) {
            : 'Apply Changes'}
         </button>
         {!noChange && (
-          <button onClick={() => { setSemitones(0); setTempoFactor(1.0); setStatus(null); setDetectedKey(null); }}
+          <button onClick={() => { setSemitones(0); setTempoFactor(1.0); setStatus(null); }}
             title='Reset to original'
             style={{ fontSize: 8, padding: '3px 5px', border: '1px solid var(--border)',
               borderRadius: 3, cursor: 'pointer', background: 'transparent',
@@ -268,10 +316,10 @@ function PitchTempoControls({ track, onReplaceClip }) {
 // Track left panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TrackPanel({ track, color, selected, playSelected, onTogglePlaySelected, onSelect, onUpdate, onRemove, onReplaceClip }) {
+function TrackPanel({ track, color, selected, playSelected, onTogglePlaySelected, onSelect, onUpdate, onRemove, onReplaceClip, panelWidth, panelHeight }) {
   return (
     <div onClick={onSelect} style={{
-      width: LEFT_W, height: PANEL_H, boxSizing: 'border-box',
+      width: panelWidth, height: panelHeight, boxSizing: 'border-box',
       borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
       borderLeft: `3px solid ${selected ? color : 'transparent'}`,
       background: selected ? `${color}11` : 'var(--bg2)',
@@ -523,7 +571,7 @@ function EditBar({ selTrack, selClip, onSplit, onCopy, onPaste, onDeleteClip, on
 // Export panel
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ExportPanel({ tracks }) {
+function ExportPanel({ tracks, onSaveToLibrary }) {
   const [fmt2, setFmt2] = useState('mp3');
   const [status, setStatus] = useState(null);
   const [result, setResult] = useState(null);
@@ -590,6 +638,7 @@ function ExportPanel({ tracks }) {
         {status==='done'&&result&&(
           <>
             <audio controls src={`${API_BASE}/download/${result.filename}`} style={{ height:26, flex:1, minWidth:140 }}/>
+            <SaveToLibraryButton filename={result.filename} displayName={result.filename} onSaveToLibrary={onSaveToLibrary} style={{ fontSize:10, padding:'4px 10px' }}/>
             <a className='download-btn' href={`${API_BASE}/download/${result.filename}`}
               download={result.filename} style={{ fontSize:10, padding:'4px 10px' }}>↓ Save</a>
           </>
@@ -609,6 +658,8 @@ export default function Workshop({
   taal, setTaal, bpm, setBpm,
   showTaal, setShowTaal, masterVol, setMasterVol,
   importBatch,
+  libraryItems,
+  onSaveToLibrary,
 }) {
   const [playing,     setPlaying]     = useState(false);
   const [toolMode,    setToolMode]    = useState('select'); // 'select'|'hand'|'cursor'
@@ -617,6 +668,8 @@ export default function Workshop({
   const [selectedCId, setSelectedCId] = useState(null);
   const [pendingProj, setPendingProj] = useState(null);
   const [playSelectedIds, setPlaySelectedIds] = useState([]);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(getInitialLeftWidth);
+  const [rowHeight, setRowHeight] = useState(getInitialRowHeight);
 
   // Spacebar play/pause
   useEffect(() => {
@@ -646,11 +699,14 @@ export default function Workshop({
   const waveRefs    = useRef({});   // trackId -> canvas
   const rulerRef    = useRef(null);
   const scrollEl    = useRef(null);
+  const leftScrollEl = useRef(null);
   const dragRef     = useRef(null);
   const fileRef     = useRef(null);
   const projRef     = useRef(null);
   const dragIdxRef  = useRef(null);
   const importRef   = useRef(null);
+  const timelineWrapRef = useRef(null);
+  const resizingLeftPanelRef = useRef(false);
 
   useEffect(()=>{ zoomRef.current=zoom; },[zoom]);
   useEffect(()=>{ toolModeRef.current=toolMode; },[toolMode]);
@@ -658,6 +714,33 @@ export default function Workshop({
   useEffect(()=>{ showTaalRef.current=showTaal; },[showTaal]);
   useEffect(()=>{ taalRef.current=taal; },[taal]);
   useEffect(()=>{ bpmRef.current=bpm; },[bpm]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('surtaal-workshop-left-width', String(leftPanelWidth));
+    }
+  }, [leftPanelWidth]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('surtaal-workshop-row-height', String(rowHeight));
+    }
+  }, [rowHeight]);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!resizingLeftPanelRef.current) return;
+      const offsetLeft = timelineWrapRef.current?.getBoundingClientRect().left || 0;
+      setLeftPanelWidth(clampLeftWidth(e.clientX - offsetLeft));
+    };
+    const stopResize = () => {
+      resizingLeftPanelRef.current = false;
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', stopResize);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', stopResize);
+    };
+  }, []);
 
   // Canvas sizing via ResizeObserver
   const sizeCanvas = (canvas, h) => {
@@ -671,11 +754,11 @@ export default function Workshop({
   useEffect(()=>{
     const obs = new ResizeObserver(()=>{
       sizeCanvas(rulerRef.current, 24);
-      tracksRef.current.forEach(t=>sizeCanvas(waveRefs.current[t.id], TRACK_H));
+      tracksRef.current.forEach(t=>sizeCanvas(waveRefs.current[t.id], rowHeight));
     });
     if (scrollEl.current) obs.observe(scrollEl.current);
     return ()=>obs.disconnect();
-  },[]);
+  },[rowHeight]);
 
   // Single RAF loop
   useEffect(()=>{
@@ -728,9 +811,11 @@ export default function Workshop({
   };
 
   const addFiles = async (files) => {
+    const hadLoadedTracks = tracksRef.current.some((track) => hasLoadedAudio(track));
     const blankTrackIds = tracksRef.current
       .filter((track) => isEmptyTrack(track))
       .map((track) => track.id);
+    const loadedDurations = [];
 
     for (const file of Array.from(files || [])) {
       const reuseTrackId = blankTrackIds.shift();
@@ -739,7 +824,8 @@ export default function Workshop({
           track.id === reuseTrackId ? { ...track, name: file.name } : track
         )));
         try {
-          await loadFileIntoTrack(reuseTrackId, file);
+          const { buf } = await loadFileIntoTrack(reuseTrackId, file);
+          loadedDurations.push(buf.duration || 0);
         } catch (e) { console.error(e); }
         continue;
       }
@@ -747,8 +833,21 @@ export default function Workshop({
       const track = makeTrack({ name: file.name });
       setTracks(prev=>[...prev, track]);
       try {
-        await loadFileIntoTrack(track.id, file);
+        const { buf } = await loadFileIntoTrack(track.id, file);
+        loadedDurations.push(buf.duration || 0);
       } catch(e){ console.error(e); }
+    }
+
+    if (!hadLoadedTracks && loadedDurations.length > 0) {
+      const el = scrollEl.current;
+      const maxDuration = Math.max(...loadedDurations);
+      if (el && maxDuration > 0) {
+        const fitZoom = Math.max(1, (el.clientWidth - 20) / maxDuration);
+        zoomRef.current = fitZoom;
+        setZoom(fitZoom);
+        scrollRef.current = 0;
+        el.scrollLeft = 0;
+      }
     }
   };
 
@@ -779,6 +878,29 @@ export default function Workshop({
     setTracks(prev=>prev.filter(t=>t.id!==id));
     setPlaySelectedIds(prev=>prev.filter(item=>item!==id));
     if (selectedTId===id) { setSelectedTId(null); setSelectedCId(null); }
+  };
+
+  const clearAllTracks = () => {
+    if (!tracksRef.current.length) return;
+    if (typeof window !== 'undefined' && !window.confirm('Remove all tracks from the workshop?')) return;
+    mixer.stop();
+    setPlaying(false);
+    tracksRef.current.forEach((track) => {
+      mixer.remove(track.id);
+      delete waveRefs.current[track.id];
+    });
+    setTracks([]);
+    setPlaySelectedIds([]);
+    setSelectedTId(null);
+    setSelectedCId(null);
+    scrollRef.current = 0;
+    if (scrollEl.current) {
+      scrollEl.current.scrollLeft = 0;
+      scrollEl.current.scrollTop = 0;
+    }
+    if (leftScrollEl.current) {
+      leftScrollEl.current.scrollTop = 0;
+    }
   };
 
   // ── Replace clip in place (after pitch/tempo processing) ──────────────────
@@ -1010,7 +1132,8 @@ export default function Workshop({
   // ── Zoom / scroll ───────────────────────────────────────────────────────
 
   const onWheel = (e)=>{
-    if (!e.ctrlKey&&!e.metaKey) return;
+    const zoomModifier = IS_MAC ? e.metaKey : e.ctrlKey;
+    if (!zoomModifier || e.shiftKey || e.altKey) return;
     e.preventDefault();
 
     const el = scrollEl.current;
@@ -1032,7 +1155,12 @@ export default function Workshop({
     scrollRef.current   = Math.max(0, newScrollLeft);
     el.scrollLeft       = scrollRef.current;
   };
-  const onScroll = (e)=>{ scrollRef.current=e.currentTarget.scrollLeft; };
+  const onScroll = (e)=>{
+    scrollRef.current = e.currentTarget.scrollLeft;
+    if (leftScrollEl.current) {
+      leftScrollEl.current.scrollTop = e.currentTarget.scrollTop;
+    }
+  };
 
   // ── Project save / load ─────────────────────────────────────────────────
 
@@ -1158,6 +1286,17 @@ export default function Workshop({
         <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'monospace', width:40 }}>{zoom<10?zoom.toFixed(1):Math.round(zoom)}px/s</span>
 
         <div style={{ width:1, height:20, background:'var(--border)' }}/>
+        <span style={{ fontSize:10, color:'var(--muted)' }}>Height</span>
+        <button className='btn-ghost' title='Compact track rows' style={{ padding:'2px 5px', fontSize:11 }}
+          onClick={()=>setRowHeight(h=>clampRowHeight(h-24))}>−</button>
+        <input type='range' min={MIN_ROW_H} max={MAX_ROW_H} step={4} value={rowHeight}
+          onChange={e=>setRowHeight(clampRowHeight(Number(e.target.value)))}
+          style={{ width:70 }}/>
+        <button className='btn-ghost' title='Taller track rows' style={{ padding:'2px 5px', fontSize:11 }}
+          onClick={()=>setRowHeight(h=>clampRowHeight(h+24))}>+</button>
+        <span style={{ fontSize:9, color:'var(--muted)', fontFamily:'monospace', width:34 }}>{Math.round(rowHeight)}px</span>
+
+        <div style={{ width:1, height:20, background:'var(--border)' }}/>
         <span style={{ fontSize:10, color:'var(--muted)' }} title='Master output volume'>Master</span>
         <input type='range' min={0} max={1} step={0.01} value={masterVol}
           onChange={e=>{const v=Number(e.target.value);setMasterVol(v);mixer.setMasterVol(v);}}
@@ -1215,6 +1354,15 @@ export default function Workshop({
           <button className='btn-ghost' onClick={()=>fileRef.current?.click()}
             title='Add audio tracks (MP3, WAV, FLAC)'
             style={{ padding:'4px 9px', fontSize:10 }}>+ Add</button>
+          <LibraryPickerButton
+            onPickFile={(file) => addFiles([file])}
+            label="Library"
+            libraryItems={libraryItems}
+            style={{ padding:'4px 9px', fontSize:10 }}
+          />
+          <button className='btn-ghost' onClick={clearAllTracks} disabled={!tracks.length}
+            title='Remove all tracks from the workshop'
+            style={{ padding:'4px 9px', fontSize:10 }}>Clear All</button>
           <input ref={fileRef} type='file' accept='audio/*' multiple
             style={{ display:'none' }} onChange={e=>{addFiles(e.target.files);e.target.value='';}}/>
         </div>
@@ -1231,7 +1379,7 @@ export default function Workshop({
       />
 
       {/* Timeline */}
-      <div style={{ flex:1, display:'flex', overflow:'hidden' }}>
+      <div ref={timelineWrapRef} style={{ flex:1, display:'flex', overflow:'hidden' }}>
         {tracks.length===0 ? (
           <div style={{ flex:1, display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center',
@@ -1241,14 +1389,22 @@ export default function Workshop({
             onDrop={e=>{e.preventDefault();addFiles(e.dataTransfer.files);}}>
             <div style={{ fontSize:52, opacity:0.12 }}>𝄞</div>
             <p style={{ fontSize:14, fontWeight:500 }}>Drop audio files to begin</p>
-            <p style={{ fontSize:11 }}>⌘+scroll=zoom · drag clip=select · ⌥+drag=move clip</p>
-            <button className='btn-primary' style={{ marginTop:4 }}
-              onClick={e=>{e.stopPropagation();fileRef.current?.click();}}>+ Add Tracks</button>
+            <p style={{ fontSize:11 }}>use toolbar or ruler-scroll to zoom · drag clip=select · ⌥+drag=move clip</p>
+            <div style={{ display:'flex', gap:8, marginTop:4 }}>
+              <button className='btn-primary'
+                onClick={e=>{e.stopPropagation();fileRef.current?.click();}}>+ Add Tracks</button>
+              <LibraryPickerButton
+                onPickFile={(file) => addFiles([file])}
+                label="From Library"
+                className="btn-ghost"
+                libraryItems={libraryItems}
+              />
+            </div>
           </div>
         ) : (
           <>
             {/* Fixed left panels */}
-            <div style={{ width:LEFT_W, flexShrink:0, display:'flex',
+            <div style={{ width:leftPanelWidth, flexShrink:0, display:'flex',
               flexDirection:'column', borderRight:'1px solid var(--border)', zIndex:2 }}>
               <div style={{ height:24, background:'var(--canvas-ruler-bg)',
                 borderBottom:'1px solid var(--border)',
@@ -1256,9 +1412,20 @@ export default function Workshop({
                 <span style={{ fontSize:8, color:'var(--muted)',
                   textTransform:'uppercase', letterSpacing:'0.08em' }}>Tracks</span>
               </div>
-              <div style={{ overflowY:'auto', flex:1 }}>
+              <div
+                ref={leftScrollEl}
+                style={{ overflowY:'hidden', flex:1 }}
+                onWheel={(e) => {
+                  if (!scrollEl.current) return;
+                  e.preventDefault();
+                  scrollEl.current.scrollTop += e.deltaY;
+                  if (e.shiftKey) scrollEl.current.scrollLeft += e.deltaY;
+                }}
+              >
                 {tracks.map((t,i)=>(
                   <TrackPanel key={t.id} track={t} color={COLORS[i%COLORS.length]}
+                    panelWidth={leftPanelWidth}
+                    panelHeight={rowHeight}
                     selected={t.id===selectedTId}
                     playSelected={playSelectedIds.includes(t.id)}
                     onTogglePlaySelected={()=>toggleTrackPlaySelection(t.id)}
@@ -1267,21 +1434,48 @@ export default function Workshop({
                     onRemove={()=>removeTrack(t.id)}
                     onReplaceClip={replaceClip}/>
                 ))}
-                <div style={{ height:32, display:'flex', alignItems:'center', paddingLeft:10 }}>
+              </div>
+              <div style={{ height:36, display:'flex', alignItems:'center', padding:'0 10px', borderTop:'1px solid var(--border)', flexShrink:0 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
                   <button onClick={()=>{ if(fileRef.current){fileRef.current.value='';fileRef.current.click();} }}
                     style={{ background:'none', border:'none', color:'var(--muted)',
-                      cursor:'pointer', fontSize:11 }}>+ Add track</button>
+                      cursor:'pointer', fontSize:11, padding:0 }}>+ Add track</button>
+                  <LibraryPickerButton
+                    onPickFile={(file) => addFiles([file])}
+                    label="From Library"
+                    className="btn-ghost"
+                    libraryItems={libraryItems}
+                    style={{ padding:'3px 8px', fontSize:10 }}
+                  />
                 </div>
               </div>
             </div>
 
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                resizingLeftPanelRef.current = true;
+              }}
+              title="Drag to resize track details panel"
+              style={{
+                width: 8,
+                cursor: 'col-resize',
+                background: 'var(--bg2)',
+                borderRight: '1px solid var(--border)',
+                borderLeft: '1px solid var(--border)',
+                flexShrink: 0,
+              }}
+            />
+
             {/* Waveform scroll area */}
             <div ref={scrollEl} style={{ flex:1, overflowX:'auto', overflowY:'auto' }}
-              onScroll={onScroll} onWheel={onWheel}>
+              onScroll={onScroll}>
               <div style={{ width:tlWidth }}>
                 {/* Ruler */}
                 <div style={{ height:24, position:'sticky', top:0, zIndex:3,
-                  background:'var(--canvas-ruler-bg)', borderBottom:'1px solid var(--border)' }}>
+                  background:'var(--canvas-ruler-bg)', borderBottom:'1px solid var(--border)' }}
+                  onWheel={onWheel}
+                  title={IS_MAC ? 'Cmd+scroll on the ruler to zoom' : 'Ctrl+scroll on the ruler to zoom'}>
                   <canvas ref={el=>{rulerRef.current=el;if(el){el.height=24;sizeCanvas(el,24);}}}
                     style={{ width:'100%', height:24, display:'block' }}/>
                 </div>
@@ -1299,12 +1493,12 @@ export default function Workshop({
                           reorder(dragIdxRef.current,idx);
                         dragIdxRef.current=null;
                       }}
-                      style={{ height:PANEL_H, minHeight:PANEL_H, borderBottom:'1px solid var(--border)',
+                      style={{ height:rowHeight, minHeight:rowHeight, borderBottom:'1px solid var(--border)',
                         outline:track.id===selectedTId?`1px solid ${COLORS[idx%COLORS.length]}44`:'none',
                         position:'relative' }}>
                       <canvas
-                        ref={el=>{waveRefs.current[track.id]=el;if(el)sizeCanvas(el,TRACK_H);}}
-                        style={{ width: scrollEl.current ? scrollEl.current.clientWidth-1 : '100%', height:TRACK_H, display:'block', cursor: toolMode==='hand'?'grab':toolMode==='cursor'?'default':'crosshair', flexShrink:0, position:'sticky', left:0 }}
+                        ref={el=>{waveRefs.current[track.id]=el;if(el)sizeCanvas(el,rowHeight);}}
+                        style={{ width: scrollEl.current ? scrollEl.current.clientWidth-1 : '100%', height:rowHeight, display:'block', cursor: toolMode==='hand'?'grab':toolMode==='cursor'?'default':'crosshair', flexShrink:0, position:'sticky', left:0 }}
                         onMouseDown={handlers.onMouseDown}
                         onMouseMove={handlers.onMouseMove}
                         onMouseUp={handlers.onMouseUp}
@@ -1326,7 +1520,7 @@ export default function Workshop({
         )}
       </div>
 
-      <ExportPanel tracks={tracks}/>
+      <ExportPanel tracks={tracks} onSaveToLibrary={onSaveToLibrary}/>
 
       {/* Taal legend */}
       {showTaal&&tracks.length>0&&(

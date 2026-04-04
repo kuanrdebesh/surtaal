@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DropZone, JobStatus, UploadedAudioPreview } from "./Shared";
+import { DropZone, JobStatus, UploadedAudioPreview, LibraryPickerButton } from "./Shared";
 import { useJob } from "../useJob";
 
 const QUALITY_OPTIONS = [
@@ -15,7 +15,7 @@ const QUALITY_OPTIONS = [
   },
 ];
 
-export default function VocalRemover({ onAddToWorkshop }) {
+export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLibrary }) {
   const [file, setFile] = useState(null);
   const [quality, setQuality] = useState("fast");
   const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
@@ -41,7 +41,10 @@ export default function VocalRemover({ onAddToWorkshop }) {
       </div>
 
       <div className="section">
-        <p className="section-label">Upload Song</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <p className="section-label" style={{ marginBottom: 0 }}>Upload Song</p>
+          <LibraryPickerButton onPickFile={setFile} libraryItems={libraryItems} />
+        </div>
         <DropZone onFile={setFile} label="Drop the song you want karaoke for" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
       </div>
@@ -110,6 +113,7 @@ export default function VocalRemover({ onAddToWorkshop }) {
         downloadUrl={downloadUrl}
         onAddToWorkshop={onAddToWorkshop}
         onDismiss={reset}
+        onSaveToLibrary={onSaveToLibrary}
       />
     </div>
   );

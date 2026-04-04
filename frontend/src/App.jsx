@@ -3,17 +3,23 @@ import StemSeparator from "./components/StemSeparator";
 import VocalRemover from "./components/VocalRemover";
 import PitchShifter from "./components/PitchShifter";
 import BpmTool from "./components/BpmTool";
+import AudioCleanup from "./components/AudioCleanup";
 import Workshop from "./components/Workshop";
 import { mixer } from "./components/mixer";
+import { LibraryManagerButton } from "./components/Shared";
 import { API_BASE } from "./config";
 import "./App.css";
+
+const LOGO_SRC = "./surtaal-mark.svg";
 
 const TOOLS = [
   { id: "stem",     label: "Stem Separator", icon: "⟁", desc: "Split into vocals & instruments" },
   { id: "vocal",    label: "Vocal Remover",  icon: "♬", desc: "Create karaoke backing tracks" },
   { id: "pitch",    label: "Pitch Shift",    icon: "♯", desc: "Change key without changing tempo" },
   { id: "bpm",      label: "BPM & Tempo",    icon: "◈", desc: "Detect & adjust track speed" },
+  { id: "cleanup",  label: "Audio Enhancement",  icon: "✦", desc: "Clean, polish & add effects" },
   { id: "workshop", label: "Audio Workshop", icon: "◁▷", desc: "Trim, fade & build medleys" },
+  { id: "help",     label: "How To Use",     icon: "?", desc: "Open the built-in guide" },
 ];
 
 function initialToolFromUrl() {
@@ -46,6 +52,7 @@ function initialTheme() {
 export default function App() {
   const [active, setActive] = useState(initialToolFromUrl);
   const [theme, setTheme] = useState(initialTheme);
+  const [libraryItems, setLibraryItems] = useState([]);
 
   // Workshop tracks lifted to App level — survive tab switches
   const [showBrowserWarn, setShowBrowserWarn] = useState(!isChrome());
@@ -131,6 +138,39 @@ export default function App() {
     setActive("workshop");
   };
 
+  const saveItemToLibrary = async ({ filename, displayName, file, sourceKind = "session" }) => {
+    let nextFile = file;
+    if (!nextFile && filename) {
+      const response = await fetch(`${API_BASE}/download/${filename}`);
+      if (!response.ok) throw new Error(`Could not load ${filename}`);
+      const blob = await response.blob();
+      nextFile = new File([blob], displayName || filename, {
+        type: blob.type || "audio/mpeg",
+      });
+    }
+    if (!nextFile) throw new Error("No audio available to save");
+    const item = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      display_name: displayName || nextFile.name,
+      filename: filename || nextFile.name,
+      source_kind: sourceKind,
+      created_at: new Date().toISOString(),
+      file: nextFile,
+    };
+    setLibraryItems((prev) => [item, ...prev]);
+    return item;
+  };
+
+  const deleteLibraryItem = async (itemId) => {
+    setLibraryItems((prev) => prev.filter((item) => item.id !== itemId));
+  };
+
+  const renameLibraryItem = async (itemId, displayName) => {
+    setLibraryItems((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, display_name: displayName, file: item.file ? new File([item.file], displayName, { type: item.file.type || "audio/mpeg" }) : item.file } : item))
+    );
+  };
+
   const dismissJob = (jobKey) => {
     setBackgroundJobs((prev) => {
       const next = { ...prev };
@@ -144,17 +184,27 @@ export default function App() {
     return (order[a.status] ?? 9) - (order[b.status] ?? 9) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
   });
 
+  const helpUrl = "how-to-use.html";
+
   return (
     <div className="app">
       <header className="header">
         <div className="logo-block">
-          <span className="logo-icon">𝄞</span>
-          <div>
-            <h1 className="logo-text">Surtaal</h1>
+            <img className="logo-mark" src={LOGO_SRC} alt="SurTaal logo" />
+            <div>
+            <h1 className="logo-text">SurTaal</h1>
             <p className="logo-sub">Audio Studio for Indian Performers</p>
           </div>
         </div>
         <div className="header-actions">
+          <LibraryManagerButton libraryItems={libraryItems} onDeleteLibraryItem={deleteLibraryItem} onRenameLibraryItem={renameLibraryItem} />
+          <button
+            type="button"
+            className="help-button"
+            onClick={() => setActive("help")}
+          >
+            Help
+          </button>
           <div className="theme-toggle-group" aria-label="Theme selector">
             <button
               type="button"
@@ -229,6 +279,8 @@ export default function App() {
             state={toolState.stem}
             setState={u => updateToolState("stem", u)}
             onAddToWorkshop={addResultsToWorkshop}
+            libraryItems={libraryItems}
+            onSaveToLibrary={saveItemToLibrary}
           />
         </div>
         <div data-tool-section="vocal" style={{ display: active === "vocal"    ? "block" : "none", height: "100%" }}>
@@ -236,13 +288,18 @@ export default function App() {
             state={toolState.vocal}
             setState={u => updateToolState("vocal", u)}
             onAddToWorkshop={addResultsToWorkshop}
+            libraryItems={libraryItems}
+            onSaveToLibrary={saveItemToLibrary}
           />
         </div>
         <div data-tool-section="pitch" style={{ display: active === "pitch"    ? "block" : "none", height: "100%" }}>
-          <PitchShifter  state={toolState.pitch} setState={u => updateToolState("pitch", u)} />
+          <PitchShifter  state={toolState.pitch} setState={u => updateToolState("pitch", u)} libraryItems={libraryItems} onSaveToLibrary={saveItemToLibrary} />
         </div>
         <div data-tool-section="bpm" style={{ display: active === "bpm"      ? "block" : "none", height: "100%" }}>
-          <BpmTool       state={toolState.bpm}   setState={u => updateToolState("bpm", u)} />
+          <BpmTool       state={toolState.bpm}   setState={u => updateToolState("bpm", u)} libraryItems={libraryItems} onSaveToLibrary={saveItemToLibrary} />
+        </div>
+        <div data-tool-section="cleanup" style={{ display: active === "cleanup" ? "block" : "none", height: "100%" }}>
+          <AudioCleanup onAddToWorkshop={addResultsToWorkshop} libraryItems={libraryItems} onSaveToLibrary={saveItemToLibrary} />
         </div>
         <div data-tool-section="workshop" style={{ display: active === "workshop" ? "flex" : "none", height: "100%", flexDirection: "column" }}>
           <Workshop
@@ -253,7 +310,34 @@ export default function App() {
             showTaal={workshopShowTaal}       setShowTaal={setWorkshopShowTaal}
             masterVol={workshopMasterVol}     setMasterVol={setWorkshopMasterVol}
             importBatch={workshopImportBatch}
+            libraryItems={libraryItems}
+            onSaveToLibrary={saveItemToLibrary}
           />
+        </div>
+        <div data-tool-section="help" style={{ display: active === "help" ? "flex" : "none", height: "100%" }}>
+          <section className="help-embed-card">
+            <div className="help-embed-header">
+              <div>
+                <h2 className="help-embed-title">Surtaal Guide</h2>
+                <p className="help-embed-subtitle">
+                  The full how-to-use guide is available right here inside the app.
+                </p>
+              </div>
+              <a
+                className="help-open-link"
+                href={helpUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open in New Tab
+              </a>
+            </div>
+            <iframe
+              className="help-embed-frame"
+              src={helpUrl}
+              title="Surtaal help guide"
+            />
+          </section>
         </div>
       </main>
 
@@ -293,7 +377,10 @@ export default function App() {
                 <button
                   className="btn-ghost"
                   type="button"
-                  onClick={() => setActive(job.jobKey)}
+                  onClick={() => {
+                    setActive(job.jobKey);
+                    dismissJob(job.jobKey);
+                  }}
                   style={{ fontSize: 11, padding: "5px 10px" }}
                 >
                   Open
