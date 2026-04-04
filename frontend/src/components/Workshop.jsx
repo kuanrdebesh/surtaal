@@ -7,8 +7,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { mixer } from './mixer.js';
 import { buildWaveData, drawWave, drawRuler } from './waveform.js';
+import { API_BASE } from "../config";
 
-const API     = 'http://localhost:8000';
 const LEFT_W  = 200;
 const TRACK_H = 260;  // track row height (matches panel)
 const PANEL_H = 260;  // left panel height (taller for pitch/tempo controls)
@@ -108,7 +108,7 @@ function PitchTempoControls({ track, onReplaceClip }) {
     const fd = new FormData();
     fd.append('file', track.file);
     try {
-      const r    = await fetch(`${API}/api/detect-key`, { method: 'POST', body: fd });
+      const r    = await fetch(`${API_BASE}/api/detect-key`, { method: 'POST', body: fd });
       const data = await r.json();
       setDetectedKey(data);
     } catch {}
@@ -123,12 +123,12 @@ function PitchTempoControls({ track, onReplaceClip }) {
   const waitForJob = (jobId) => new Promise((resolve, reject) => {
     const iv = setInterval(async () => {
       try {
-        const j = await fetch(`${API}/job/${jobId}`).then(x => x.json());
+        const j = await fetch(`${API_BASE}/job/${jobId}`).then(x => x.json());
         if (j.status === 'done') {
           clearInterval(iv);
           const filename = j.files?.[0]?.filename;
           if (!filename) { reject(new Error('no file')); return; }
-          const blob = await fetch(`${API}/download/${filename}`).then(r => r.blob());
+          const blob = await fetch(`${API_BASE}/download/${filename}`).then(r => r.blob());
           resolve(new File([blob], filename, { type: 'audio/mpeg' }));
         }
         if (j.status === 'error') { clearInterval(iv); reject(new Error('job failed')); }
@@ -150,7 +150,7 @@ function PitchTempoControls({ track, onReplaceClip }) {
         fd.append('file', currentFile);
         fd.append('semitones', semitones);
         fd.append('output_format', 'mp3');
-        const { job_id } = await fetch(`${API}/api/pitch-shift`, { method:'POST', body:fd }).then(r=>r.json());
+        const { job_id } = await fetch(`${API_BASE}/api/pitch-shift`, { method:'POST', body:fd }).then(r=>r.json());
         currentFile = await waitForJob(job_id);
       }
 
@@ -160,7 +160,7 @@ function PitchTempoControls({ track, onReplaceClip }) {
         fd.append('file', currentFile);
         fd.append('factor', tempoFactor);
         fd.append('output_format', 'mp3');
-        const { job_id } = await fetch(`${API}/api/tempo-change`, { method:'POST', body:fd }).then(r=>r.json());
+        const { job_id } = await fetch(`${API_BASE}/api/tempo-change`, { method:'POST', body:fd }).then(r=>r.json());
         currentFile = await waitForJob(job_id);
       }
 
@@ -550,10 +550,10 @@ function ExportPanel({ tracks }) {
     });
     fd.append('output_format', fmt2);
     try {
-      const r    = await fetch(`${API}/api/mix-export`,{method:'POST',body:fd});
+      const r    = await fetch(`${API_BASE}/api/mix-export`,{method:'POST',body:fd});
       const data = await r.json();
       const poll = setInterval(async()=>{
-        const j = await fetch(`${API}/job/${data.job_id}`).then(x=>x.json());
+        const j = await fetch(`${API_BASE}/job/${data.job_id}`).then(x=>x.json());
         if (j.progress) setProg(j.progress);
         if (j.status==='done') { clearInterval(poll); setStatus('done'); setResult(j.files?.[0]); }
         if (j.status==='error') { clearInterval(poll); setStatus('err'); }
@@ -589,8 +589,8 @@ function ExportPanel({ tracks }) {
         )}
         {status==='done'&&result&&(
           <>
-            <audio controls src={`${API}/download/${result.filename}`} style={{ height:26, flex:1, minWidth:140 }}/>
-            <a className='download-btn' href={`${API}/download/${result.filename}`}
+            <audio controls src={`${API_BASE}/download/${result.filename}`} style={{ height:26, flex:1, minWidth:140 }}/>
+            <a className='download-btn' href={`${API_BASE}/download/${result.filename}`}
               download={result.filename} style={{ fontSize:10, padding:'4px 10px' }}>↓ Save</a>
           </>
         )}

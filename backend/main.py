@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Header, Response, status
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -10,9 +10,13 @@ import asyncio
 from pathlib import Path
 from typing import Optional
 import logging
+import mimetypes
+from runtime import UPLOAD_DIR, OUTPUT_DIR, configure_runtime_environment
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+configure_runtime_environment()
 
 app = FastAPI(title="Surtaal Audio Engine", version="1.0.0")
 
@@ -24,17 +28,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_DIR = Path("uploads")
-OUTPUT_DIR = Path("outputs")
-UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
-
 job_status = {}
+
+def _safe_stem(name: str) -> str:
+    stem = Path(name or "track").stem.strip()
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in stem)
+    cleaned = "_".join(part for part in cleaned.split("_") if part)
+    return cleaned[:80] or "track"
 
 def save_upload(file: UploadFile) -> Path:
     file_id = str(uuid.uuid4())
     ext = Path(file.filename).suffix or ".mp3"
-    path = UPLOAD_DIR / f"{file_id}{ext}"
+    original_stem = _safe_stem(file.filename or "track")
+    path = UPLOAD_DIR / f"{original_stem}__{file_id}{ext}"
     with open(path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     return path
@@ -50,11 +56,63 @@ def get_job(job_id: str):
     return job_status[job_id]
 
 @app.get("/download/{filename}")
-def download_file(filename: str):
+def download_file(filename: str, range_header: Optional[str] = Header(None, alias="Range")):
     path = OUTPUT_DIR / filename
     if not path.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(path, filename=filename)
+
+    file_size = path.stat().st_size
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    common_headers = {
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": f'inline; filename="{path.name}"',
+    }
+
+    if not range_header:
+        return FileResponse(path, filename=filename, media_type=media_type, headers=common_headers)
+
+    match = None
+    try:
+        import re
+        match = re.match(r"bytes=(\d*)-(\d*)$", range_header.strip())
+    except Exception:
+        match = None
+
+    if not match:
+        return FileResponse(path, filename=filename, media_type=media_type, headers=common_headers)
+
+    start_text, end_text = match.groups()
+    if start_text == "" and end_text == "":
+        return FileResponse(path, filename=filename, media_type=media_type, headers=common_headers)
+
+    if start_text == "":
+        length = min(int(end_text), file_size)
+        start = max(0, file_size - length)
+        end = file_size - 1
+    else:
+        start = int(start_text)
+        end = int(end_text) if end_text else file_size - 1
+
+    if start >= file_size or end < start:
+        raise HTTPException(status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE, detail="Invalid range")
+
+    end = min(end, file_size - 1)
+    content_length = end - start + 1
+
+    with open(path, "rb") as fh:
+        fh.seek(start)
+        content = fh.read(content_length)
+
+    return Response(
+        content=content,
+        status_code=status.HTTP_206_PARTIAL_CONTENT,
+        media_type=media_type,
+        headers={
+            **common_headers,
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Content-Length": str(content_length),
+        },
+    )
 
 # ── 1. STEM SEPARATION ──────────────────────────────────────────────────────
 
@@ -195,18 +253,19 @@ async def tempo_change(
     file: UploadFile = File(...),
     factor: float = Form(...),  # e.g. 1.1 = 10% faster, 0.9 = 10% slower
     output_format: str = Form("mp3"),
+    target_bpm: Optional[int] = Form(None),
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
     job_status[job_id] = {"status": "processing", "progress": 0}
-    background_tasks.add_task(_tempo_change_task, job_id, input_path, factor, output_format)
+    background_tasks.add_task(_tempo_change_task, job_id, input_path, factor, output_format, target_bpm)
     return {"job_id": job_id}
 
-async def _tempo_change_task(job_id: str, input_path: Path, factor: float, output_format: str):
+async def _tempo_change_task(job_id: str, input_path: Path, factor: float, output_format: str, target_bpm: Optional[int]):
     try:
         from audio_ops import tempo_change
         job_status[job_id]["progress"] = 20
-        result = await asyncio.to_thread(tempo_change, input_path, factor, output_format)
+        result = await asyncio.to_thread(tempo_change, input_path, factor, output_format, target_bpm)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
     except Exception as e:
         logger.error(f"Tempo change failed: {e}")
@@ -390,4 +449,9 @@ async def _export_mix_task(job_id: str, tracks: list, output_format: str):
         job_status[job_id] = {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        app,
+        host=os.environ.get("SURTAAL_API_HOST", "127.0.0.1"),
+        port=int(os.environ.get("SURTAAL_API_PORT", "8000")),
+        reload=False,
+    )

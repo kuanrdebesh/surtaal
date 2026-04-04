@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-const API = "http://localhost:8000";
+import { API_BASE } from "../config";
 
 // ── FILE DROP ZONE ─────────────────────────────────────────────────────────
 
@@ -40,8 +39,8 @@ export function DropZone({ onFile, accept = "audio/*", label = "Drop audio file 
 // ── AUDIO PREVIEW PLAYER ───────────────────────────────────────────────────
 // Shown inline next to every result — plays directly in browser
 
-export function AudioPreview({ filename, label, audioRef }) {
-  const url = `${API}/download/${filename}`;
+export function AudioPreview({ filename, label, audioRef, onInteracted }) {
+  const url = `${API_BASE}/download/${filename}`;
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, width: "100%" }}>
@@ -51,6 +50,8 @@ export function AudioPreview({ filename, label, audioRef }) {
         preload="metadata"
         src={url}
         aria-label={`${label} preview`}
+        onPlay={onInteracted}
+        onSeeked={onInteracted}
         style={{ flex: 1, minWidth: 0, height: 36 }}
       />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
@@ -106,13 +107,16 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready" }) 
   const [selected, setSelected] = useState({});
   const [importing, setImporting] = useState(false);
   const [playingSelected, setPlayingSelected] = useState(false);
+  const [anchorFilename, setAnchorFilename] = useState(null);
   const audioRefs = useRef({});
 
   useEffect(() => {
     if (results.length > 0) {
       setSelected(Object.fromEntries(results.map((r) => [r.filename, true])));
+      setAnchorFilename(results[0].filename);
     } else {
       setSelected({});
+      setAnchorFilename(null);
     }
     setImporting(false);
     setPlayingSelected(false);
@@ -148,7 +152,10 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready" }) 
 
   const playSelected = async () => {
     if (selectedAudioEls.length === 0) return;
-    const anchorTime = selectedAudioEls[0].currentTime || 0;
+    const anchorAudio = (anchorFilename && audioRefs.current[anchorFilename] && selected[anchorFilename])
+      ? audioRefs.current[anchorFilename]
+      : selectedAudioEls[0];
+    const anchorTime = anchorAudio?.currentTime || 0;
     selectedAudioEls.forEach((audio) => {
       audio.currentTime = anchorTime;
     });
@@ -232,6 +239,7 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready" }) 
             <AudioPreview
               filename={r.filename}
               label={r.label}
+              onInteracted={() => setAnchorFilename(r.filename)}
               audioRef={(node) => {
                 if (node) audioRefs.current[r.filename] = node;
                 else delete audioRefs.current[r.filename];
@@ -244,15 +252,27 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready" }) 
   );
 }
 
-export function JobStatus({ status, progress, results, error, downloadUrl, onAddToWorkshop }) {
+export function JobStatus({ status, progress, results, error, downloadUrl, onAddToWorkshop, onDismiss }) {
 
   if (!status) return null;
 
   if (status === "error") {
     return (
-      <div className="error-box">
-        <span>⚠</span>
-        <span>{error}</span>
+      <div className="error-box" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <span>⚠</span>
+          <span style={{ minWidth: 0 }}>{error}</span>
+        </div>
+        {onDismiss && (
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={onDismiss}
+            style={{ padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
+          >
+            Dismiss
+          </button>
+        )}
       </div>
     );
   }

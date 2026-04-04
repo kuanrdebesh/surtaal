@@ -308,6 +308,7 @@ export default function StemSeparator({ onAddToWorkshop }) {
         results={[]}
         error={error}
         onAddToWorkshop={onAddToWorkshop}
+        onDismiss={reset}
       />
 
       <ResultsPanel

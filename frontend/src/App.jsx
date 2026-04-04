@@ -5,9 +5,8 @@ import PitchShifter from "./components/PitchShifter";
 import BpmTool from "./components/BpmTool";
 import Workshop from "./components/Workshop";
 import { mixer } from "./components/mixer";
+import { API_BASE } from "./config";
 import "./App.css";
-
-const API = "http://localhost:8000";
 
 const TOOLS = [
   { id: "stem",     label: "Stem Separator", icon: "⟁", desc: "Split into vocals & instruments" },
@@ -114,7 +113,7 @@ export default function App() {
   const addResultsToWorkshop = async (results) => {
     const files = await Promise.all(
       results.map(async (result) => {
-        const response = await fetch(`${API}/download/${result.filename}`);
+        const response = await fetch(`${API_BASE}/download/${result.filename}`);
         if (!response.ok) {
           throw new Error(`Could not load ${result.filename}`);
         }

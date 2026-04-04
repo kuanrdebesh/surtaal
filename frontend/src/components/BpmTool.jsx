@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { DropZone, JobStatus, FormatPicker, UploadedAudioPreview } from "./Shared";
+import { API_BASE } from "../config";
 import { useJob } from "../useJob";
-
-const API = "http://localhost:8000";
 
 export default function BpmTool() {
   const [file, setFile] = useState(null);
@@ -10,7 +9,7 @@ export default function BpmTool() {
   const [detecting, setDetecting] = useState(false);
   const [factor, setFactor] = useState(1.0);
   const [format, setFormat] = useState("mp3");
-  const { status, progress, results, error, submit, downloadUrl } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
     jobKey: "bpm",
     label: "BPM & Tempo",
   });
@@ -22,7 +21,7 @@ export default function BpmTool() {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const res = await fetch(`${API}/api/detect-bpm`, { method: "POST", body: fd });
+      const res = await fetch(`${API_BASE}/api/detect-bpm`, { method: "POST", body: fd });
       const data = await res.json();
       setDetectedBpm(data.bpm);
     } catch {
@@ -38,6 +37,7 @@ export default function BpmTool() {
     fd.append("file", file);
     fd.append("factor", factor);
     fd.append("output_format", format);
+    if (targetBpm) fd.append("target_bpm", String(targetBpm));
     submit("/api/tempo-change", fd);
   };
 
@@ -148,6 +148,7 @@ export default function BpmTool() {
         results={results}
         error={error}
         downloadUrl={downloadUrl}
+        onDismiss={reset}
       />
     </div>
   );

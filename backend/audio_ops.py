@@ -7,11 +7,15 @@ import re
 import sys
 import uuid
 import subprocess
+import traceback
+import logging
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Callable, Optional
+from runtime import OUTPUT_DIR, configure_runtime_environment
 
-OUTPUT_DIR = Path("outputs")
-OUTPUT_DIR.mkdir(exist_ok=True)
+configure_runtime_environment()
+logger = logging.getLogger(__name__)
 
 PERCENT_RE = re.compile(r"(\d{1,3})%\|")
 BAG_RE = re.compile(r"bag of (\d+) models", re.IGNORECASE)
@@ -31,8 +35,58 @@ STEM_ALIAS_MAP = {
 }
 
 
-def _out(name: str, ext: str) -> Path:
-    return OUTPUT_DIR / f"{name}_{uuid.uuid4().hex[:8]}.{ext}"
+def _safe_name(value: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "_", str(value or "").strip())
+    cleaned = re.sub(r"_+", "_", cleaned).strip("_")
+    return cleaned[:100] or "track"
+
+
+def _source_base(input_path: Path) -> str:
+    stem = input_path.stem
+    if "__" in stem:
+        stem = stem.split("__", 1)[0]
+    return _safe_name(stem)
+
+
+def _unique_output_name(*parts: str, ext: str) -> Path:
+    base = "_".join(part for part in (_safe_name(part) for part in parts) if part)
+    candidate = OUTPUT_DIR / f"{base}.{ext}"
+    if not candidate.exists():
+        return candidate
+
+    counter = 2
+    while True:
+        candidate = OUTPUT_DIR / f"{base}_{counter}.{ext}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
+
+
+def _out(source_base: str, name: str, ext: str) -> Path:
+    return _unique_output_name(source_base, name, ext=ext)
+
+
+def _stem_suffix(stem_label: str) -> str:
+    mapping = {
+        "No Vocals": "backing",
+        "Vocals": "vocals",
+        "Drums": "drums",
+        "Bass": "bass",
+        "Other": "other",
+        "Guitar": "guitar",
+        "Piano": "piano",
+    }
+    return mapping.get(stem_label, _safe_name(stem_label).lower())
+
+
+def _ensure_soundfile_compat() -> None:
+    try:
+        import soundfile as sf
+    except Exception:
+        return
+
+    if not hasattr(sf, "SoundFileRuntimeError") and hasattr(sf, "SoundFileError"):
+        sf.SoundFileRuntimeError = sf.SoundFileError
 
 
 def _normalize_target_stems(target_stems: Optional[list[str]]) -> list[str]:
@@ -107,25 +161,10 @@ def _demucs_error(stderr: str) -> str:
     return f"Demucs failed: {tail[-500:]}"
 
 
-def _run_demucs(
-    cmd: list[str],
-    *,
+def _demucs_output_parser(
     expected_bars: int = 1,
     progress_cb: Optional[Callable[[int], None]] = None,
-) -> str:
-    """
-    Run Demucs and, when possible, translate its real tqdm output into a
-    backend progress percentage.
-    """
-    process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-        env=_demucs_env(),
-    )
-
+):
     output_parts: list[str] = []
     line_buffer = ""
     total_bars = max(1, expected_bars)
@@ -162,6 +201,92 @@ def _run_demucs(
             progress_cb(progress)
         last_pct = pct
 
+    def feed(text: str):
+        nonlocal line_buffer
+        if not text:
+            return
+        for char in text:
+            if char in ("\r", "\n"):
+                handle_progress_text(line_buffer)
+                line_buffer = ""
+            else:
+                line_buffer += char
+
+    def finish() -> str:
+        nonlocal line_buffer
+        if line_buffer:
+            handle_progress_text(line_buffer)
+            line_buffer = ""
+        return "\n".join(output_parts)
+
+    return feed, finish
+
+
+class _DemucsStreamCapture:
+    def __init__(self, feed: Callable[[str], None]):
+        self._feed = feed
+
+    def write(self, text: str) -> int:
+        self._feed(text)
+        return len(text or "")
+
+    def flush(self) -> None:
+        return None
+
+
+def _run_demucs_embedded(
+    demucs_args: list[str],
+    *,
+    expected_bars: int = 1,
+    progress_cb: Optional[Callable[[int], None]] = None,
+) -> str:
+    from demucs.separate import main as demucs_main
+
+    feed, finish = _demucs_output_parser(expected_bars=expected_bars, progress_cb=progress_cb)
+    stream_capture = _DemucsStreamCapture(feed)
+
+    try:
+        with redirect_stdout(stream_capture), redirect_stderr(stream_capture):
+            demucs_main(demucs_args)
+    except SystemExit as exc:
+        combined_output = finish()
+        exit_code = exc.code if isinstance(exc.code, int) else (0 if exc.code in (None, False) else 1)
+        if exit_code != 0:
+            raise RuntimeError(_demucs_error(combined_output))
+        return combined_output
+    except Exception as exc:
+        combined_output = finish()
+        detail = combined_output.strip()
+        if exc:
+            exception_text = "".join(traceback.format_exception_only(type(exc), exc)).strip()
+            detail = f"{detail}\n{exception_text}".strip() if detail else exception_text
+        if detail:
+            raise RuntimeError(_demucs_error(detail))
+        raise
+
+    return finish()
+
+
+def _run_demucs(
+    cmd: list[str],
+    *,
+    expected_bars: int = 1,
+    progress_cb: Optional[Callable[[int], None]] = None,
+) -> str:
+    """
+    Run Demucs and, when possible, translate its real tqdm output into a
+    backend progress percentage.
+    """
+    feed, finish = _demucs_output_parser(expected_bars=expected_bars, progress_cb=progress_cb)
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        env=_demucs_env(),
+    )
+
     assert process.stdout is not None
     while True:
         char = process.stdout.read(1)
@@ -169,17 +294,10 @@ def _run_demucs(
             if process.poll() is not None:
                 break
             continue
-        if char in ("\r", "\n"):
-            handle_progress_text(line_buffer)
-            line_buffer = ""
-        else:
-            line_buffer += char
-
-    if line_buffer:
-        handle_progress_text(line_buffer)
+        feed(char)
 
     returncode = process.wait()
-    combined_output = "\n".join(output_parts)
+    combined_output = finish()
     if returncode != 0:
         raise RuntimeError(_demucs_error(combined_output))
     return combined_output
@@ -217,29 +335,36 @@ def stem_separate(
     target_stems: Optional[list[str]] = None,
     progress_cb: Optional[Callable[[int], None]] = None,
 ) -> list[dict]:
+    source_base = _source_base(input_path)
     out_dir = OUTPUT_DIR / f"stems_{uuid.uuid4().hex[:8]}"
     out_dir.mkdir(exist_ok=True)
     normalized_targets = _normalize_target_stems(target_stems)
     effective_stems = _required_stem_family(normalized_targets, stems)
     model, extra_args, expected_bars = _demucs_profile(effective_stems, quality)
-    cmd = [sys.executable, "-m", "demucs", "--out", str(out_dir), "--mp3", "-n", model, *extra_args]
+    demucs_args = ["--out", str(out_dir), "--mp3", "-n", model, *extra_args]
     if len(normalized_targets) == 1:
         target = normalized_targets[0]
         demucs_target = "vocals" if target == "no_vocals" else target
-        cmd += ["--two-stems", demucs_target]
+        demucs_args += ["--two-stems", demucs_target]
     elif effective_stems == "2":
-        cmd += ["--two-stems", "vocals"]
-    cmd.append(str(input_path))
-    _run_demucs(cmd, expected_bars=expected_bars, progress_cb=progress_cb)
+        demucs_args += ["--two-stems", "vocals"]
+    demucs_args.append(str(input_path))
+
+    if getattr(sys, "frozen", False):
+        _run_demucs_embedded(demucs_args, expected_bars=expected_bars, progress_cb=progress_cb)
+    else:
+        cmd = [sys.executable, "-m", "demucs", *demucs_args]
+        _run_demucs(cmd, expected_bars=expected_bars, progress_cb=progress_cb)
+
     if progress_cb:
         progress_cb(99)
     results = []
-    uid = uuid.uuid4().hex[:6]
     for stem_file in sorted(out_dir.rglob("*.mp3")):
-        dest_name = f"{stem_file.stem}_{uid}.mp3"
-        dest = OUTPUT_DIR / dest_name
+        stem_label = stem_file.stem.replace("_", " ").title()
+        dest = _unique_output_name(source_base, _stem_suffix(stem_label), ext="mp3")
+        dest_name = dest.name
         stem_file.rename(dest)
-        results.append({"label": stem_file.stem.replace("_", " ").title(), "filename": dest_name})
+        results.append({"label": stem_label, "filename": dest_name})
     results = _filter_result_stems(results, normalized_targets)
     try:
         import shutil
@@ -262,6 +387,7 @@ def vocal_remove(
 # ── KEY DETECTION ─────────────────────────────────────────────────────────────
 
 def detect_key(input_path: Path) -> dict:
+    _ensure_soundfile_compat()
     import librosa
     import numpy as np
     y, sr = librosa.load(str(input_path), sr=None, mono=True, duration=60)
@@ -282,7 +408,9 @@ def detect_key(input_path: Path) -> dict:
 # ── PITCH SHIFT ───────────────────────────────────────────────────────────────
 
 def pitch_shift(input_path: Path, semitones: float, output_format: str = "mp3") -> list[dict]:
+    _ensure_soundfile_compat()
     import librosa, soundfile as sf, numpy as np
+    source_base = _source_base(input_path)
     y, sr = librosa.load(str(input_path), sr=None, mono=False)
     try:
         import pyrubberband as pyrb
@@ -290,12 +418,17 @@ def pitch_shift(input_path: Path, semitones: float, output_format: str = "mp3") 
     except ImportError:
         if y.ndim > 1: y = librosa.to_mono(y)
         shifted = librosa.effects.pitch_shift(y, sr=sr, n_steps=semitones)
-    out_wav = _out("pitch_shifted", "wav")
+    except Exception as exc:
+        logger.warning("Rubber Band pitch shift failed, falling back to librosa: %s", exc)
+        if y.ndim > 1: y = librosa.to_mono(y)
+        shifted = librosa.effects.pitch_shift(y, sr=sr, n_steps=semitones)
+    semitone_tag = str(semitones).replace("-", "minus_").replace("+", "plus_").replace(".", "_")
+    out_wav = _out(source_base, f"pitch_{semitone_tag}_st", "wav")
     sf.write(str(out_wav), shifted.T if shifted.ndim>1 else shifted, sr)
     sign = "+" if semitones >= 0 else ""
     label = f"Pitch shifted ({sign}{semitones} semitones)"
     if output_format == "mp3":
-        out_mp3 = _out("pitch_shifted", "mp3")
+        out_mp3 = _out(source_base, f"pitch_{semitone_tag}_st", "mp3")
         _wav_to_mp3(out_wav, out_mp3)
         os.remove(out_wav)
         return [{"label": label, "filename": out_mp3.name}]
@@ -305,6 +438,7 @@ def pitch_shift(input_path: Path, semitones: float, output_format: str = "mp3") 
 # ── BPM DETECTION ─────────────────────────────────────────────────────────────
 
 def detect_bpm(input_path: Path) -> float:
+    _ensure_soundfile_compat()
     import librosa
     y, sr = librosa.load(str(input_path), sr=None, mono=True)
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
@@ -313,8 +447,10 @@ def detect_bpm(input_path: Path) -> float:
 
 # ── TEMPO CHANGE ──────────────────────────────────────────────────────────────
 
-def tempo_change(input_path: Path, factor: float, output_format: str = "mp3") -> list[dict]:
+def tempo_change(input_path: Path, factor: float, output_format: str = "mp3", target_bpm: Optional[int] = None) -> list[dict]:
+    _ensure_soundfile_compat()
     import librosa, soundfile as sf, numpy as np
+    source_base = _source_base(input_path)
     y, sr = librosa.load(str(input_path), sr=None, mono=False)
     try:
         import pyrubberband as pyrb
@@ -322,12 +458,17 @@ def tempo_change(input_path: Path, factor: float, output_format: str = "mp3") ->
     except ImportError:
         if y.ndim > 1: y = librosa.to_mono(y)
         stretched = librosa.effects.time_stretch(y, rate=factor)
-    out_wav = _out("tempo_changed", "wav")
+    except Exception as exc:
+        logger.warning("Rubber Band tempo change failed, falling back to librosa: %s", exc)
+        if y.ndim > 1: y = librosa.to_mono(y)
+        stretched = librosa.effects.time_stretch(y, rate=factor)
+    tempo_suffix = f"{int(target_bpm)}_BPM" if target_bpm else f"tempo_{round(factor * 100)}pct"
+    out_wav = _out(source_base, tempo_suffix, "wav")
     sf.write(str(out_wav), stretched.T if stretched.ndim>1 else stretched, sr)
     pct = round((factor-1)*100)
     label = f"Tempo {'+' if pct>=0 else ''}{pct}%"
     if output_format == "mp3":
-        out_mp3 = _out("tempo_changed", "mp3")
+        out_mp3 = _out(source_base, tempo_suffix, "mp3")
         _wav_to_mp3(out_wav, out_mp3)
         os.remove(out_wav)
         return [{"label": label, "filename": out_mp3.name}]
@@ -356,7 +497,8 @@ def stitch_audio(input_paths: list, fade_duration: float = 2.0,
                 result = result.fade_out(fade_ms)
                 seg = seg.fade_in(fade_ms)
             result = result + seg
-    out = _out("medley", output_format)
+    first_source = _source_base(Path(input_paths[0])) if input_paths else "medley"
+    out = _out(first_source, "medley", output_format)
     result.export(str(out), format=output_format)
     return [{"label": "Medley", "filename": out.name}]
 
@@ -371,7 +513,7 @@ def trim_fade(input_path: Path, start_ms: int = 0, end_ms: Optional[int] = None,
     trimmed = seg[start_ms:end_ms] if end_ms else seg[start_ms:]
     if fade_in_ms > 0: trimmed = trimmed.fade_in(fade_in_ms)
     if fade_out_ms > 0: trimmed = trimmed.fade_out(fade_out_ms)
-    out = _out("trimmed", output_format)
+    out = _out(_source_base(input_path), "trimmed", output_format)
     trimmed.export(str(out), format=output_format)
     return [{"label": "Trimmed clip", "filename": out.name}]
 
@@ -427,7 +569,8 @@ def export_mix(tracks: list[dict], output_format: str = "mp3") -> list[dict]:
         offset = t.get("start_offset_ms", 0)
         mix = mix.overlay(clip, position=offset)
 
-    out = _out("mix", output_format)
+    first_source = _source_base(Path(active[0]["path"])) if active else "mix"
+    out = _out(first_source, "mix", output_format)
     mix.export(str(out), format=output_format, bitrate="192k")
     return [{"label": "Mixed track", "filename": out.name}]
 
@@ -486,7 +629,8 @@ def mix_export(
     for offset_ms, clip in segments:
         canvas = canvas.overlay(clip, position=offset_ms)
 
-    out = _out("mix", output_format)
+    first_source = _source_base(Path(input_paths[0])) if input_paths else "mix"
+    out = _out(first_source, "mix", output_format)
     canvas.export(str(out), format=output_format, bitrate="192k")
     return [{"label": "Mixed export", "filename": out.name}]
 
@@ -494,4 +638,10 @@ def mix_export(
 
 def _wav_to_mp3(wav_path: Path, mp3_path: Path):
     from pydub import AudioSegment
+    converter = os.environ.get("FFMPEG_BINARY")
+    ffprobe = os.environ.get("FFPROBE_BINARY")
+    if converter:
+        AudioSegment.converter = converter
+    if ffprobe:
+        AudioSegment.ffprobe = ffprobe
     AudioSegment.from_wav(str(wav_path)).export(str(mp3_path), format="mp3", bitrate="192k")

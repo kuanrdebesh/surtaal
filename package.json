@@ -1,0 +1,58 @@
+{
+  "name": "surtaal",
+  "version": "1.0.0",
+  "private": true,
+  "author": "Debesh Kuanr <kuanr.debesh@gmail.com>",
+  "description": "Desktop packaging scaffold for Surtaal",
+  "main": "desktop/electron/main.cjs",
+  "scripts": {
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "desktop": "electron .",
+    "desktop:build": "npm run frontend:build && electron-builder --win nsis --x64",
+    "desktop:build:backend:win": "powershell -ExecutionPolicy Bypass -File desktop/scripts/build-backend-win.ps1"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.surtaal.desktop",
+    "productName": "Surtaal",
+    "files": [
+      "desktop/**/*",
+      "frontend/dist/**/*",
+      "backend/**/*.py",
+      "backend/runtime.py",
+      "backend/requirements.txt",
+      "backend/requirements-desktop.txt",
+      "backend/uploads/.gitkeep",
+      "backend/outputs/.gitkeep"
+    ],
+    "extraResources": [
+      {
+        "from": "desktop/backend-dist",
+        "to": "backend-dist",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "desktop/vendor/bin",
+        "to": "bin",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "extraMetadata": {
+      "main": "desktop/electron/main.cjs"
+    },
+    "directories": {
+      "buildResources": "desktop/resources"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

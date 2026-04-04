@@ -18,7 +18,7 @@ const QUALITY_OPTIONS = [
 export default function VocalRemover({ onAddToWorkshop }) {
   const [file, setFile] = useState(null);
   const [quality, setQuality] = useState("fast");
-  const { status, progress, results, error, submit, downloadUrl } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
     jobKey: "vocal",
     label: "Vocal Remover",
   });
@@ -109,6 +109,7 @@ export default function VocalRemover({ onAddToWorkshop }) {
         error={error}
         downloadUrl={downloadUrl}
         onAddToWorkshop={onAddToWorkshop}
+        onDismiss={reset}
       />
     </div>
   );

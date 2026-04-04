@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { DropZone, JobStatus, FormatPicker, UploadedAudioPreview } from "./Shared";
+import { API_BASE } from "../config";
 import { useJob } from "../useJob";
-
-const API = "http://localhost:8000";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const SWARA_NAMES = ["Sa", "Re♭", "Re", "Ga♭", "Ga", "Ma", "Ma#", "Pa", "Dha♭", "Dha", "Ni♭", "Ni"];
@@ -45,7 +44,7 @@ export default function PitchShifter() {
   const [format, setFormat] = useState("mp3");
   const [detectedKey, setDetectedKey] = useState(null);
   const [detecting, setDetecting] = useState(false);
-  const { status, progress, results, error, submit, downloadUrl } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
     jobKey: "pitch",
     label: "Pitch Shift",
   });
@@ -60,7 +59,7 @@ export default function PitchShifter() {
     const fd = new FormData();
     fd.append("file", f);
     try {
-      const res = await fetch(`${API}/api/detect-key`, { method: "POST", body: fd });
+      const res = await fetch(`${API_BASE}/api/detect-key`, { method: "POST", body: fd });
       const data = await res.json();
       setDetectedKey(data);
     } catch {
@@ -195,7 +194,7 @@ export default function PitchShifter() {
       </button>
       {noChange && file && <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Adjust semitones or cents to enable processing.</p>}
 
-      <JobStatus status={status} progress={progress} results={results} error={error} downloadUrl={downloadUrl} />
+      <JobStatus status={status} progress={progress} results={results} error={error} downloadUrl={downloadUrl} onDismiss={reset} />
     </div>
   );
 }

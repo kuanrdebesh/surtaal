@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-
-const API = "http://localhost:8000";
+import { API_BASE } from "./config";
 
 export function useJob(options = {}) {
   const { jobKey, label } = options;
@@ -31,7 +30,7 @@ export function useJob(options = {}) {
 
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/job/${jobId}`);
+        const res = await fetch(`${API_BASE}/job/${jobId}`);
         const data = await res.json();
 
         if (data.progress) setProgress(data.progress);
@@ -59,7 +58,7 @@ export function useJob(options = {}) {
     setStatus("processing");
     setProgress(2);
     try {
-      const res = await fetch(`${API}${endpoint}`, {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
         method: "POST",
         body: formData,
       });
@@ -86,7 +85,7 @@ export function useJob(options = {}) {
     }
   }, [pollJob, reset]);
 
-  const downloadUrl = (filename) => `${API}/download/${filename}`;
+  const downloadUrl = (filename) => `${API_BASE}/download/${filename}`;
 
   return { status, progress, results, error, submit, reset, downloadUrl };
 }

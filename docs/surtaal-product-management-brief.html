@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surtaal Product Management Brief</title>
+  <style>
+    :root {
+      --bg: #efe8db;
+      --paper: #fffdf8;
+      --ink: #1d1a16;
+      --muted: #6b6258;
+      --line: #d8cfc2;
+      --brand: #8a2e20;
+      --brand-soft: #f6e5de;
+      --accent: #1d5a54;
+      --accent-soft: #e4f1ee;
+      --code: #f6f2eb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", serif;
+      line-height: 1.56;
+    }
+
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 42px 58px 76px;
+      background: var(--paper);
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 34px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-top: 34px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    h3 {
+      font-size: 18px;
+      margin-top: 22px;
+    }
+
+    p, li, td, th {
+      font-size: 15px;
+    }
+
+    .lead {
+      font-size: 18px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 24px 0 28px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 12px 14px;
+    }
+
+    .meta-card strong {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--brand);
+      background: var(--brand-soft);
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+
+    .decision {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 16px 18px;
+      margin: 16px 0;
+    }
+
+    .decision h3 {
+      margin-top: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 22px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      padding: 10px 12px;
+    }
+
+    th {
+      background: #f4eee4;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 13px;
+      background: var(--code);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      main {
+        max-width: none;
+        margin: 0;
+        padding: 18mm 16mm 18mm;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Surtaal Product Management Brief</h1>
+    <p class="lead">
+      A product-management view of what Surtaal has built so far, why those investments were made,
+      and the rationale behind the major product and delivery decisions.
+    </p>
+
+    <div class="meta">
+      <div class="meta-card">
+        <strong>Product Stage</strong>
+        Phase 1 local product with early desktop packaging expansion toward Windows
+      </div>
+      <div class="meta-card">
+        <strong>Primary Users</strong>
+        Singers, students, musicians, rehearsal users, and performance-prep workflows
+      </div>
+      <div class="meta-card">
+        <strong>Document Lens</strong>
+        Product strategy, user value, prioritization logic, and decision rationale
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Executive summary.</strong> Surtaal has been built as a focused, local-first audio utility
+      for Indian music practice and stage-prep workflows. The product has deliberately prioritized
+      meaningful musician outcomes over platform breadth: users can separate stems, create karaoke tracks,
+      adjust pitch and tempo, assemble rehearsal mixes, and work with an embedded workshop without relying
+      on a cloud service. Recent upgrades, especially the Windows desktop packaging path, are not random
+      technical additions; they are product moves aimed at reducing setup friction, widening distribution,
+      and preserving the local-first value proposition while making the product easier to adopt.
+    </div>
+
+    <h2>1. Product Context</h2>
+    <p>
+      Surtaal exists to solve a practical workflow problem: many singers and musicians need rehearsal-ready
+      audio utilities, but the current tooling landscape is fragmented, overly technical, cloud-dependent,
+      or not tailored to Indian music practice patterns. Users often need a simple way to remove vocals,
+      slow down tracks for practice, shift key for comfort, prepare medleys, and create usable backing
+      material without learning a full DAW or uploading sensitive audio to an online service.
+    </p>
+    <p>
+      From a product-management perspective, the central promise of Surtaal is clear: make audio preparation
+      easier, cheaper, and more accessible for real musical workflows, especially for users who care about
+      privacy, low recurring cost, and simplicity over studio complexity.
+    </p>
+
+    <h2>2. Product Vision and Positioning</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Positioning choice</th>
+          <th>Why this matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>User segment</td>
+          <td>Indian performers, students, and practice-oriented musicians</td>
+          <td>Gives the product a specific audience and avoids becoming a generic audio toy</td>
+        </tr>
+        <tr>
+          <td>Core promise</td>
+          <td>Useful audio workflows without cloud dependence</td>
+          <td>Creates trust and keeps value tangible from the first use</td>
+        </tr>
+        <tr>
+          <td>Product personality</td>
+          <td>Utility-first, rehearsal-first, approachable</td>
+          <td>Reduces intimidation for non-technical users</td>
+        </tr>
+        <tr>
+          <td>Competitive angle</td>
+          <td>Focused workflow bundle instead of a full professional DAW</td>
+          <td>Lets Surtaal win through clarity, not by matching every advanced audio feature</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>3. What Has Been Built</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Built area</th>
+          <th>What is included</th>
+          <th>User outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stem separation</td>
+          <td>Vocals, backing, drums, bass, guitar, piano, and other extraction paths</td>
+          <td>Users can isolate the part they need instead of working with one mixed track</td>
+        </tr>
+        <tr>
+          <td>Vocal removal</td>
+          <td>Karaoke-style backing generation</td>
+          <td>Singers can practice or perform without the original lead vocal</td>
+        </tr>
+        <tr>
+          <td>Pitch shifting</td>
+          <td>Key change without tempo change</td>
+          <td>Tracks can be adapted to comfortable singing range</td>
+        </tr>
+        <tr>
+          <td>BPM and tempo</td>
+          <td>BPM detection and speed adjustment</td>
+          <td>Users can slow down difficult sections or rehearse at a controlled pace</td>
+        </tr>
+        <tr>
+          <td>Audio Workshop</td>
+          <td>Clip-based workspace for layering, playback, trims, fades, and exports</td>
+          <td>Users can move from one-off tools into a cohesive practice workflow</td>
+        </tr>
+        <tr>
+          <td>Medley builder</td>
+          <td>Multi-song stitching with crossfades and silence controls</td>
+          <td>Useful for stage preparation, rehearsals, and set planning</td>
+        </tr>
+        <tr>
+          <td>Trim and fade</td>
+          <td>Clip cleanup and polished segment exports</td>
+          <td>Users can create shorter, cleaner rehearsal-ready assets</td>
+        </tr>
+        <tr>
+          <td>Guided onboarding</td>
+          <td>Live help page plus shareable standalone guide</td>
+          <td>Reduces dependence on verbal instruction and makes the product easier to adopt</td>
+        </tr>
+        <tr>
+          <td>Desktop packaging starter</td>
+          <td>Electron shell, packaging scripts, desktop runtime handling, Windows backend bundling path</td>
+          <td>Moves Surtaal closer to a non-technical install experience and broader distribution</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>4. Why These Things Were Built</h2>
+    <p>
+      The current product scope shows a clear prioritization philosophy: each built capability solves a direct,
+      recurring user task in rehearsal or performance prep. Surtaal is not trying to be everything for everyone.
+      It is bundling together the jobs users most commonly piece together across multiple tools.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Initiative</th>
+          <th>Why it was worth building</th>
+          <th>PM rationale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Stem separation and vocal removal</td>
+          <td>These are high-perceived-value features with immediate user payoff</td>
+          <td>They create the strongest first impression and justify the product's existence quickly</td>
+        </tr>
+        <tr>
+          <td>Pitch and tempo tools</td>
+          <td>These are common practice tasks and reduce friction in daily use</td>
+          <td>They increase repeat usage and broaden the product beyond one novelty feature</td>
+        </tr>
+        <tr>
+          <td>Workshop and export features</td>
+          <td>Users need to combine outputs, not just generate them</td>
+          <td>This shifts Surtaal from a tool collection into a workflow product</td>
+        </tr>
+        <tr>
+          <td>Medley and trim/fade tools</td>
+          <td>They match real stage and rehearsal preparation needs</td>
+          <td>They deepen utility for serious users without requiring a full DAW strategy</td>
+        </tr>
+        <tr>
+          <td>Guides and help pages</td>
+          <td>Setup and usage friction is a major barrier for non-technical users</td>
+          <td>Documentation becomes part of the product, not just a support asset</td>
+        </tr>
+        <tr>
+          <td>Windows desktop path</td>
+          <td>Distribution and adoption improve when users do not need a dev-style workflow</td>
+          <td>It addresses the productization gap between a working tool and a usable product</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5. Major Product Decisions and Why They Were Taken</h2>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>Surtaal was built as a local-first product</h3>
+      <p><strong>Choice.</strong> Processing runs on the user's machine rather than on a required cloud backend.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> It aligns with the product's promise of low recurring cost,
+        privacy, and direct ownership of user audio. It also helps the product feel trustworthy for users who may
+        be uncomfortable uploading songs or rehearsal recordings to an online service.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This choice strengthens differentiation. It is not only a technical decision;
+        it is part of the product story and value proposition.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The first phase focused on practical workflows instead of advanced studio breadth</h3>
+      <p><strong>Choice.</strong> Prioritize high-frequency tasks such as stems, karaoke, pitch, tempo, trim, medleys, and mixes.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Users adopt tools faster when the use cases are concrete.
+        Trying to match a full DAW feature set too early would have diluted the roadmap and raised complexity
+        without increasing immediate value.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> Narrowing scope increases clarity, accelerates delivery, and makes Surtaal easier
+        to explain, market, and validate.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The product uses a browser-based UI even in the local app</h3>
+      <p><strong>Choice.</strong> Build the interface in React and keep it usable in browser mode or desktop mode.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> It allowed fast product iteration, reuse of modern UI tooling,
+        and easier transition into desktop packaging or a future hosted web experience.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This keeps optionality high. One UI investment can support multiple delivery
+        channels instead of forcing separate native client efforts early.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The Audio Workshop was built as a lightweight workflow layer, not a full DAW</h3>
+      <p><strong>Choice.</strong> Add a clip-based workspace for combining, previewing, and exporting useful outputs.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Users often need one more step after a one-off transformation.
+        The workshop creates continuity between tools without taking on the massive complexity of a traditional music
+        production environment.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This increases retention and perceived completeness while protecting roadmap focus.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>Long-running work was designed around jobs and progress states</h3>
+      <p><strong>Choice.</strong> The product submits processing jobs and surfaces progress instead of blocking the UI.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Audio processing is slow enough that responsiveness is part of the
+        product experience. Visible progress reduces anxiety and lets users keep context while the task runs.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This is a usability decision as much as an architecture decision. It makes the
+        product feel alive and dependable during heavy operations.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>Guided help was treated as a shipped feature</h3>
+      <p><strong>Choice.</strong> Provide a live in-app help page and a shareable standalone guide.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Surtaal serves users who may not be comfortable with terminal-first
+        or engineer-style products. Good documentation reduces drop-off, setup dependency, and support burden.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> For an early product, onboarding quality can matter as much as feature count.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>Windows desktop support is being approached incrementally</h3>
+      <p><strong>Choice.</strong> Add an Electron shell and backend bundling path first, rather than rewrite the app natively.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> The biggest barrier to broader adoption is not feature absence;
+        it is install and usage friction. Electron provides the fastest realistic route to a desktop app using the
+        existing frontend and backend assets.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This is a speed-to-distribution decision. It gets Surtaal closer to users sooner
+        while preserving the option to improve packaging quality over time.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The Windows packaging work externalizes runtime paths and bundled binaries</h3>
+      <p><strong>Choice.</strong> Introduce runtime-configurable paths for uploads, outputs, model cache, and supporting binaries.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> A packaged desktop product cannot assume a development-style repo
+        structure. Moving runtime directories out of hard-coded local folders makes the app more portable, more reliable,
+        and easier to distribute.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This is part of product hardening. Users do not care how paths are managed, but they
+        care deeply that the app installs cleanly and works consistently.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The backend bundling step was made explicit</h3>
+      <p><strong>Choice.</strong> Provide a dedicated Windows backend bundling script instead of hiding packaging complexity.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> The backend includes heavy Python and audio dependencies. Making the
+        bundling step explicit clarifies what is product-ready now and what remains part of installer hardening.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This manages expectations responsibly. It is better to describe a clear path to a
+        self-contained installer than to pretend that packaging complexity does not exist.
+      </p>
+    </div>
+
+    <h2>6. Why the Recent Upgrades Matter from a PM Perspective</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Upgrade</th>
+          <th>Direct product impact</th>
+          <th>Why it matters strategically</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Desktop shell for Windows path</td>
+          <td>Brings Surtaal closer to a normal installed application</td>
+          <td>Improves accessibility for non-technical users and expands addressable audience</td>
+        </tr>
+        <tr>
+          <td>Shared runtime API configuration</td>
+          <td>The same UI can run in browser and desktop contexts</td>
+          <td>Protects product optionality and lowers maintenance cost</td>
+        </tr>
+        <tr>
+          <td>Runtime-managed folders</td>
+          <td>User files and model assets can live outside a dev-oriented repo layout</td>
+          <td>Necessary for a polished consumer install experience</td>
+        </tr>
+        <tr>
+          <td>Bundled backend path</td>
+          <td>Moves away from requiring a separately managed Python environment</td>
+          <td>Closes the gap between prototype distribution and product distribution</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>7. Deliberate Tradeoffs and Non-Goals</h2>
+    <p>
+      Good product decisions are often defined as much by what was deferred as by what was shipped. Surtaal has
+      taken several sensible tradeoffs for its current stage.
+    </p>
+    <ul>
+      <li>It does not try to be a collaborative cloud music platform yet.</li>
+      <li>It does not try to compete with professional DAWs on depth of editing.</li>
+      <li>It currently prioritizes local single-user workflows over multi-user persistence.</li>
+      <li>It treats Windows packaging as a productization path in progress, not a fully solved endpoint.</li>
+      <li>It accepts some heavier runtime footprint in exchange for high-value audio capabilities such as Demucs.</li>
+    </ul>
+    <p>
+      From a PM standpoint, these are healthy tradeoffs. They keep the roadmap anchored in user value rather than
+      in checkbox breadth.
+    </p>
+
+    <h2>8. What the Product Has Achieved So Far</h2>
+    <ol>
+      <li>Surtaal has moved beyond a single-purpose utility and become a compact workflow product.</li>
+      <li>It has established a differentiated local-first positioning with clear user relevance.</li>
+      <li>It has created a platform base that can now expand into easier desktop distribution.</li>
+      <li>It has added onboarding and usability layers that make the product more approachable.</li>
+      <li>It has preserved future optionality for desktop and web delivery without changing the core value story.</li>
+    </ol>
+
+    <h2>9. Recommended PM Narrative for Stakeholders</h2>
+    <p>
+      The strongest stakeholder narrative is not "we added many technical upgrades." The stronger narrative is:
+      Surtaal has been steadily productized. We first built the core musician workflows that create immediate
+      value, then we added workflow cohesion, then we reduced adoption friction through guidance and packaging
+      work, and now we are preparing the product for wider desktop distribution without abandoning its local-first
+      identity.
+    </p>
+    <p>
+      That story is coherent because each decision follows the same logic: help users get useful musical outcomes
+      with less effort, less technical complexity, and less dependence on external services.
+    </p>
+
+    <h2>10. Suggested Next Product Priorities</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Priority</th>
+          <th>Why it should come next</th>
+          <th>Expected PM outcome</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Polish Windows installation end-to-end</td>
+          <td>Distribution friction remains the main adoption blocker</td>
+          <td>Improved usability, broader testing, stronger product credibility</td>
+        </tr>
+        <tr>
+          <td>Stability and error handling improvements</td>
+          <td>Trust is critical for a utility product</td>
+          <td>Higher repeat usage and lower support overhead</td>
+        </tr>
+        <tr>
+          <td>Clear positioning and onboarding assets</td>
+          <td>The product already has a strong story that should be communicated consistently</td>
+          <td>Better conversion from curiosity to successful first use</td>
+        </tr>
+        <tr>
+          <td>Selective workflow depth in Workshop</td>
+          <td>This is where Surtaal becomes stickier over time</td>
+          <td>Higher retention and stronger differentiation</td>
+        </tr>
+        <tr>
+          <td>Explore optional hosted/web strategy later</td>
+          <td>Only after desktop/local product fit is stronger</td>
+          <td>Avoid premature cloud complexity while keeping future growth options open</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>11. Final Assessment</h2>
+    <p>
+      From a product-management perspective, Surtaal's recent modifications are coherent and strategically sound.
+      The team has not been adding features randomly. It has been building toward a clear outcome: a focused audio
+      product for musicians that delivers practical value locally, then becomes easier to install, easier to use,
+      and easier to distribute.
+    </p>
+    <p>
+      The Windows desktop effort is especially important in that story. It is not just a technical packaging task;
+      it is a product-access decision. It exists because distribution quality directly affects who can actually
+      benefit from Surtaal. That makes it a product milestone, not merely an engineering one.
+    </p>
+
+    <p class="footer">
+      Prepared as a product-management summary for the current Surtaal repository state and recent productization work.
+    </p>
+  </main>
+</body>
+</html>

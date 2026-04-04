@@ -8,7 +8,7 @@ export default function MedleyBuilder() {
   const [crossfade, setCrossfade] = useState(true);
   const [format, setFormat] = useState("mp3");
   const inputRef = useRef();
-  const { status, progress, results, error, submit, downloadUrl } = useJob();
+  const { status, progress, results, error, submit, downloadUrl, reset } = useJob();
 
   const addFiles = (newFiles) => {
     const arr = Array.from(newFiles).map((f) => ({ file: f, id: Math.random().toString(36).slice(2) }));
@@ -172,6 +172,7 @@ export default function MedleyBuilder() {
         results={results}
         error={error}
         downloadUrl={downloadUrl}
+        onDismiss={reset}
       />
     </div>
   );

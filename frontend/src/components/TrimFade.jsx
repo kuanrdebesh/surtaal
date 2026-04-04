@@ -16,7 +16,7 @@ export default function TrimFade() {
   const [fadeInMs, setFadeInMs] = useState(500);
   const [fadeOutMs, setFadeOutMs] = useState(1000);
   const [format, setFormat] = useState("mp3");
-  const { status, progress, results, error, submit, downloadUrl } = useJob();
+  const { status, progress, results, error, submit, downloadUrl, reset } = useJob();
 
   const handleSubmit = () => {
     if (!file) return;
@@ -171,6 +171,7 @@ export default function TrimFade() {
         results={results}
         error={error}
         downloadUrl={downloadUrl}
+        onDismiss={reset}
       />
     </div>
   );

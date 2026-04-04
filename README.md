@@ -1,21 +1,50 @@
-# 𝄞 Surtaal — Audio Studio for Indian Performers
+# 𝄞 Surtaal
 
-> Phase 1: Free local audio processing tools for Hindustani & Bollywood musicians
+Audio studio for Indian performers to separate stems, create karaoke tracks, shift pitch, adjust tempo, and build rehearsal-ready mixes locally.
 
----
+> Phase 1: free local audio tools for Hindustani, Bollywood, and practice-focused music workflows
 
-## What's Inside
+Surtaal is designed for singers, students, and musicians who want more control over **sur**, **taal**, and arrangement without sending songs to a cloud service. It runs on your machine, keeps the workflow simple, and includes an in-browser workshop for trying ideas quickly.
+
+## Why Surtaal
+
+- Built for Indian music practice and stage-prep workflows
+- Runs locally on your Mac with no recurring API cost
+- Lets you preview uploads, process in the background, and keep working
+- Includes a simple workshop for layering tracks and exporting mixes
+
+## What You Can Do
 
 | Tool | What it does |
 |---|---|
-| **Stem Separator** | Split songs into vocals + instruments (or 4 stems: drums, bass, other, vocals) |
-| **Vocal Remover** | One-click karaoke track generation |
-| **Pitch Shift** | Change key ±12 semitones without affecting tempo |
-| **BPM & Tempo** | Detect beats per minute, speed up or slow down tracks |
+| **Stem Separator** | Extract only the stems you need, such as vocals, backing, drums, bass, guitar, piano, or other |
+| **Vocal Remover** | Generate karaoke-style backing tracks from full songs |
+| **Pitch Shift** | Change key without changing tempo |
+| **BPM & Tempo** | Detect BPM and slow down or speed up tracks for practice |
+| **Audio Workshop** | Load tracks, play selected parts together, trim ideas, and build mixes |
 | **Medley Builder** | Stitch multiple songs with crossfades |
-| **Trim & Fade** | Cut clips, add fade in/out, export clips |
+| **Trim & Fade** | Cut clips, add fades, and export polished sections |
 
-Everything runs **100% locally on your Mac**. No internet required after setup. No API costs.
+## Quick Start
+
+```bash
+cd ~/Documents/surtaal
+chmod +x setup.sh start.sh
+./setup.sh
+./start.sh
+```
+
+Then open:
+
+- `http://localhost:3000`
+- `http://localhost:3000/how-to-use.html`
+
+Everything runs **100% locally on your Mac**. After setup, most workflows do not require internet access except first-time model downloads.
+
+## Guides
+
+- Live guide inside the app: `http://localhost:3000/how-to-use.html`
+- Shareable standalone guide in this repo: `Surtaal-How-To-Guide-Standalone.html`
 
 ---
 
@@ -76,6 +105,57 @@ http://localhost:3000/how-to-use.html
 ```
 
 This shows a standalone guided walkthrough of the main tools and workflow.
+
+---
+
+## Desktop Packaging Starter
+
+Surtaal now includes a quick desktop scaffold for the fastest path toward a Windows app:
+
+- Electron desktop shell in `desktop/electron/`
+- Shared frontend API config so the UI can run in browser mode or desktop mode
+- Root packaging scripts in `package.json`
+
+Current scope of this starter:
+
+- launches the built frontend inside Electron
+- starts the FastAPI backend in the background
+- keeps the current architecture mostly intact
+
+What still needs to be bundled for a polished Windows installer:
+
+- Python runtime
+- `ffmpeg`
+- `rubberband`
+- Windows-tested Demucs/runtime packaging
+
+Starter commands:
+
+```bash
+npm install
+npm run frontend:build
+npm run desktop
+```
+
+Windows build target:
+
+```bash
+npm run desktop:build
+```
+
+This is the quickest workable desktop path, not the final production-grade installer yet.
+
+To move toward a self-contained Windows build, Surtaal now also includes:
+
+- portable backend runtime paths via environment variables
+- Electron-managed runtime folders for uploads, outputs, and model cache
+- a Windows backend bundling script:
+
+```powershell
+npm run desktop:build:backend:win
+```
+
+That script is meant to run on a Windows build machine. It prepares a packaged backend in `desktop/backend-dist/`, which the Electron installer can include automatically.
 
 ---
 
@@ -226,9 +306,10 @@ surtaal/
 - Then stitch them in Medley Builder with 2-second crossfade
 
 ### Stem Separation Quality
-- **Spleeter (2-stem)**: Fastest, good for most Bollywood tracks
-- **Spleeter (4-stem)**: Separates tabla/drums; slightly slower
-- **Demucs**: Best quality, takes 2–3× longer; good for complex orchestral arrangements
+- **Fast**: Good default for experimentation and everyday practice
+- **Best Quality**: Slower, but cleaner on dense arrangements
+- Extracting only the stems you need is usually faster than asking for broader separation
+- `Vocals` or `Backing` are usually lighter than `guitar` or `piano`, which require the heavier 6-stem path
 
 ---
 

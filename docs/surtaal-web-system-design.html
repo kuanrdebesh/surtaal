@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Surtaal Web System Design</title>
+  <style>
+    :root {
+      --bg: #f5f1e8;
+      --paper: #fffdf8;
+      --ink: #1e1b16;
+      --muted: #6f665a;
+      --line: #d7cfc1;
+      --brand: #8b2e1f;
+      --brand-soft: #f4e5de;
+      --accent: #21554a;
+      --accent-soft: #e4f0ec;
+      --code: #f6f3ee;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Georgia", "Times New Roman", serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 40px 56px 72px;
+      background: var(--paper);
+    }
+
+    h1, h2, h3 {
+      line-height: 1.2;
+      margin: 0 0 12px;
+    }
+
+    h1 {
+      font-size: 34px;
+      margin-bottom: 8px;
+    }
+
+    h2 {
+      font-size: 24px;
+      margin-top: 34px;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    h3 {
+      font-size: 18px;
+      margin-top: 22px;
+    }
+
+    p, li {
+      font-size: 15px;
+    }
+
+    .lead {
+      font-size: 18px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 24px 0 28px;
+    }
+
+    .meta-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 12px 14px;
+    }
+
+    .meta-card strong {
+      display: block;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      border-left: 4px solid var(--brand);
+      background: var(--brand-soft);
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+
+    .decision {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 16px 18px;
+      margin: 16px 0;
+    }
+
+    .decision h3 {
+      margin-top: 0;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    code, pre {
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 13px;
+    }
+
+    code {
+      background: var(--code);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: var(--code);
+      border: 1px solid var(--line);
+      padding: 14px;
+      white-space: pre-wrap;
+      margin: 16px 0;
+      overflow-wrap: anywhere;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 22px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      text-align: left;
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f3eee5;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      main {
+        max-width: none;
+        margin: 0;
+        padding: 18mm 16mm 18mm;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Surtaal Web System Design</h1>
+    <p class="lead">
+      System design documentation for evolving Surtaal from a local desktop-first audio tool
+      into a production-ready web platform without losing the current job-based interaction model.
+    </p>
+
+    <div class="meta">
+      <div class="meta-card">
+        <strong>Scope</strong>
+        Web architecture for audio processing, storage, delivery, and operations
+      </div>
+      <div class="meta-card">
+        <strong>Audience</strong>
+        Product, engineering, platform, and packaging stakeholders
+      </div>
+      <div class="meta-card">
+        <strong>Design Goal</strong>
+        Support multi-user web delivery for heavy audio workflows such as Demucs stem separation
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Executive summary.</strong> Surtaal should keep its current split between a light UI and a
+      processing backend, but the backend must be redesigned for distributed execution. The right web
+      architecture is a static frontend, a thin API tier, background workers for audio jobs, object storage
+      for user media, Redis for queueing and ephemeral job state, and Postgres for durable metadata. This
+      design matches Surtaal's existing job model, scales better than request-bound processing, and avoids
+      forcing Demucs and Python audio tooling into the browser.
+    </div>
+
+    <h2>1. Current State</h2>
+    <p>
+      Surtaal is currently a local two-process application. The React frontend submits multipart requests
+      directly to a FastAPI backend, receives a <code>job_id</code>, polls <code>/job/{job_id}</code>, and
+      downloads generated files from the backend output directory. Long-running work is started through
+      FastAPI <code>BackgroundTasks</code> and executed in-process via <code>asyncio.to_thread(...)</code>.
+    </p>
+    <p>
+      That pattern is a strong starting point for the web because the frontend already thinks in terms of
+      async jobs. However, the current backend keeps uploads, outputs, and job state on a single machine and
+      in memory. That is suitable for a local app, but it breaks down quickly for multi-user web traffic.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Current local design</th>
+          <th>Why it must change for web</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Job state</td>
+          <td>In-memory Python dictionary</td>
+          <td>State disappears on restart and cannot be shared across multiple API instances</td>
+        </tr>
+        <tr>
+          <td>Uploads and outputs</td>
+          <td>Local filesystem folders</td>
+          <td>Not durable across instances and poor fit for multi-node delivery</td>
+        </tr>
+        <tr>
+          <td>Heavy processing</td>
+          <td>Runs inside backend process</td>
+          <td>Long CPU-bound jobs would starve API capacity and reduce reliability</td>
+        </tr>
+        <tr>
+          <td>Client connectivity</td>
+          <td>Assumes localhost API</td>
+          <td>Web deployment needs stable public API routing, auth, and tenancy isolation</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>2. Design Drivers</h2>
+    <ol>
+      <li>Keep the user interaction model simple: upload, process, monitor progress, and download results.</li>
+      <li>Support CPU-heavy and memory-heavy audio jobs without blocking user-facing API requests.</li>
+      <li>Scale from a small MVP to a multi-user deployment without rewriting the entire product.</li>
+      <li>Preserve room for privacy-sensitive positioning by minimizing unnecessary data retention.</li>
+      <li>Stay aligned with the current Python audio stack instead of forcing a premature browser-only rewrite.</li>
+    </ol>
+
+    <h2>3. Proposed High-Level Architecture</h2>
+    <pre>
++-------------------+        +--------------------+        +----------------------+
+| Browser Frontend  | -----> | FastAPI API Tier   | -----> | Redis Queue / Cache  |
+| React + Vite SPA  |        | Auth + job control |        | Job dispatch/state   |
++-------------------+        +--------------------+        +----------------------+
+          |                               |                              |
+          |                               v                              |
+          |                   +-----------------------+                  |
+          |                   | Postgres Metadata DB  |                  |
+          |                   | Users, jobs, audit    |                  |
+          |                   +-----------------------+                  |
+          |                               |                              |
+          v                               v                              v
++-------------------+        +--------------------+        +----------------------+
+| CDN / Static Host |        | Object Storage     | <----- | Audio Worker Pool    |
+| Web assets        |        | Uploads + outputs  |        | Demucs, ffmpeg, DSP  |
++-------------------+        +--------------------+        +----------------------+
+    </pre>
+
+    <h2>4. Component Decisions and Rationale</h2>
+
+    <div class="decision">
+      <div class="tag">Decision 1</div>
+      <h3>Use a static web frontend separate from the processing backend</h3>
+      <p><strong>Choice.</strong> Host the React frontend as static assets on a CDN-backed platform.</p>
+      <p>
+        <strong>Rationale.</strong> The Surtaal UI is already a client-rendered app that communicates with
+        backend endpoints over HTTP. Serving it statically is cheaper, simpler, and easier to scale than
+        coupling page rendering to the audio backend. Static hosting also makes global delivery, cacheability,
+        and zero-downtime deploys much easier.
+      </p>
+      <p>
+        <strong>Why not a server-rendered monolith.</strong> Server rendering would not solve Surtaal's core
+        challenge, which is heavy audio processing. It would add deployment complexity without reducing worker
+        load or making Demucs execution easier.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 2</div>
+      <h3>Keep FastAPI as the API layer</h3>
+      <p><strong>Choice.</strong> Retain FastAPI for upload handling, job creation, status lookup, and download orchestration.</p>
+      <p>
+        <strong>Rationale.</strong> Surtaal already uses FastAPI successfully, and the current request contracts
+        naturally map to a web API. Reusing FastAPI preserves team familiarity, keeps the audio stack in Python,
+        and avoids unnecessary interface churn between the frontend and backend.
+      </p>
+      <p>
+        <strong>Why not replace it with Node or Go.</strong> Those stacks could serve APIs well, but the core
+        processing logic and dependencies are already in Python. Replatforming the API tier would increase the
+        total system boundary count without removing the Python worker dependency.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 3</div>
+      <h3>Move audio processing into a dedicated worker tier</h3>
+      <p><strong>Choice.</strong> Run stem separation, pitch shift, tempo change, mix export, and stitching in workers, not in API processes.</p>
+      <p>
+        <strong>Rationale.</strong> Demucs and other DSP steps are long-running and CPU-intensive. An API
+        instance should accept work quickly and stay responsive. Separating workers from the API avoids head-of-line
+        blocking, makes crashes more isolated, and allows scaling compute independently from request throughput.
+      </p>
+      <p>
+        <strong>Why not keep <code>BackgroundTasks</code> in the API.</strong> That model is acceptable for a
+        single-machine local app, but in web production it causes resource contention, poor autoscaling behavior,
+        and weak failure recovery. Background tasks tied to API lifecycles are not durable enough for multi-minute jobs.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 4</div>
+      <h3>Use Redis as the queue and ephemeral job-state cache</h3>
+      <p><strong>Choice.</strong> Use Redis-backed queueing and transient progress tracking between API and worker nodes.</p>
+      <p>
+        <strong>Rationale.</strong> Redis fits Surtaal's need for fast enqueue/dequeue operations, lightweight
+        progress updates, and short-lived state transitions. It reduces the coordination burden between API
+        instances and workers while remaining simple enough for an MVP.
+      </p>
+      <p>
+        <strong>Why not use only Postgres as a queue.</strong> Postgres can support jobs, but it is a weaker fit
+        for high-churn, in-flight progress updates and worker heartbeat style interactions. For Surtaal, Redis is
+        the cleaner operational boundary for execution state, while Postgres remains the durable source of truth.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 5</div>
+      <h3>Use Postgres for durable metadata</h3>
+      <p><strong>Choice.</strong> Store users, projects, job history, file references, retention metadata, and audit information in Postgres.</p>
+      <p>
+        <strong>Rationale.</strong> Once Surtaal becomes a web product, users expect jobs and generated assets to
+        survive restarts and deployments. Postgres gives durable relational storage, transactional integrity, and
+        a strong base for future features such as billing, project history, or collaboration.
+      </p>
+      <p>
+        <strong>Why not store everything in Redis.</strong> Redis is excellent for transient coordination but is
+        a poor long-term home for user-facing history and compliance-relevant metadata.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 6</div>
+      <h3>Use object storage for uploads and generated outputs</h3>
+      <p><strong>Choice.</strong> Store audio inputs and outputs in S3-compatible object storage rather than local disk.</p>
+      <p>
+        <strong>Rationale.</strong> Object storage is durable, cheap, and naturally suited to large binary files.
+        It also decouples file delivery from whichever API or worker node happened to process the job. That is the
+        main reason this design scales horizontally without sticky sessions.
+      </p>
+      <p>
+        <strong>Why not keep local files and shared volumes.</strong> Shared filesystems add infrastructure complexity
+        and become painful under horizontal scaling. Object storage is the standard, lower-friction answer for this
+        workload shape.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 7</div>
+      <h3>Preserve the job-based API contract</h3>
+      <p><strong>Choice.</strong> Keep submit-job, check-job, and download-result semantics in the public API.</p>
+      <p>
+        <strong>Rationale.</strong> The existing frontend already uses this pattern. It maps well to long-running
+        audio work and gives a clean mental model to users. Preserving it reduces UI churn and shortens migration
+        time from local to web deployment.
+      </p>
+      <p>
+        <strong>Why not force synchronous APIs.</strong> Synchronous request-response is a poor fit for operations
+        that can run for tens of seconds or minutes. It would increase timeouts and degrade user experience.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 8</div>
+      <h3>Start with polling, then add push updates later if needed</h3>
+      <p><strong>Choice.</strong> Keep frontend polling for job progress in the first web release, with an upgrade path to SSE or WebSockets.</p>
+      <p>
+        <strong>Rationale.</strong> Surtaal already polls today, so this keeps the migration low risk. Polling is
+        operationally simple and good enough for a moderate job volume. If the product later needs more immediate
+        multi-job dashboards, server-sent events can be added without changing the underlying execution architecture.
+      </p>
+      <p>
+        <strong>Why not start with WebSockets.</strong> WebSockets add infrastructure and session management
+        complexity before there is evidence that polling is insufficient.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision 9</div>
+      <h3>Do not make the browser run the full audio pipeline</h3>
+      <p><strong>Choice.</strong> Keep Demucs and heavy DSP on the server side.</p>
+      <p>
+        <strong>Rationale.</strong> Surtaal depends on Python-native packages, large compiled libraries, and
+        model inference workloads that are not practical as a mainstream browser-only experience. Browser execution
+        would create inconsistent results across devices, very large client downloads, and poor mobile support.
+      </p>
+      <p>
+        <strong>Where the browser still helps.</strong> Interactive playback, waveform views, arrangement UI,
+        and lightweight editing previews can remain client-side.
+      </p>
+    </div>
+
+    <h2>5. Logical Request Flows</h2>
+
+    <h3>5.1 File upload and job creation</h3>
+    <ol>
+      <li>User uploads audio from the browser.</li>
+      <li>Frontend requests either a direct upload URL or posts the file to the API.</li>
+      <li>Object storage stores the file, and Postgres records metadata.</li>
+      <li>API creates a job row and enqueues work in Redis.</li>
+      <li>API returns <code>job_id</code> immediately.</li>
+    </ol>
+
+    <h3>5.2 Worker execution</h3>
+    <ol>
+      <li>A worker claims the job from Redis.</li>
+      <li>The worker downloads the input object or streams it into a local temp workspace.</li>
+      <li>The worker runs the relevant Python audio pipeline.</li>
+      <li>The worker writes outputs back to object storage.</li>
+      <li>The worker updates Redis and Postgres with progress, final status, and output references.</li>
+    </ol>
+
+    <h3>5.3 Result retrieval</h3>
+    <ol>
+      <li>The frontend polls <code>/jobs/{id}</code>.</li>
+      <li>When the job is complete, the API returns result metadata and download URLs.</li>
+      <li>The browser downloads from object storage through signed URLs or via the API proxy.</li>
+    </ol>
+
+    <h2>6. Data Model and State Boundaries</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Home</th>
+          <th>Reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Users, auth, projects, retention rules</td>
+          <td>Postgres</td>
+          <td>Durable relational data with clear ownership and queryability</td>
+        </tr>
+        <tr>
+          <td>Queued jobs, heartbeat, transient progress</td>
+          <td>Redis</td>
+          <td>Fast coordination and low-latency state updates</td>
+        </tr>
+        <tr>
+          <td>Original uploads and generated media</td>
+          <td>Object storage</td>
+          <td>Durability, horizontal scalability, lower cost per GB</td>
+        </tr>
+        <tr>
+          <td>Per-job temporary scratch space</td>
+          <td>Worker local disk</td>
+          <td>Fast local processing with automatic cleanup after completion</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>7. Deployment Topology</h2>
+    <p>
+      The recommended production topology is three independently deployable services plus managed storage:
+    </p>
+    <ol>
+      <li><strong>Frontend.</strong> Static site on CDN.</li>
+      <li><strong>API.</strong> FastAPI service behind HTTPS load balancing.</li>
+      <li><strong>Workers.</strong> Python worker pool on compute-optimized instances.</li>
+      <li><strong>Managed services.</strong> Redis, Postgres, and object storage.</li>
+    </ol>
+    <p>
+      This topology keeps the control plane small and the compute plane elastic. It also lets Surtaal scale
+      API replicas and workers independently, which is important because a burst of uploads does not imply the
+      same scaling behavior as a burst of long stem separation jobs.
+    </p>
+
+    <h2>8. Scalability and Capacity Planning</h2>
+
+    <div class="decision">
+      <div class="tag">Capacity</div>
+      <h3>Scale workers by job class rather than one shared pool forever</h3>
+      <p>
+        Stem separation, tempo change, pitch shift, and mix export have different CPU, memory, and latency
+        characteristics. Over time, Surtaal should classify jobs into queues such as <code>light-dsp</code>,
+        <code>mixing</code>, and <code>demucs-heavy</code>. That prevents small jobs from waiting behind large
+        inference tasks and gives the team more precise autoscaling control.
+      </p>
+    </div>
+
+    <p>
+      Initial MVP scaling can still start with one queue and one worker deployment. The classification is a
+      second-phase optimization, not a day-one requirement.
+    </p>
+
+    <h2>9. Security and Privacy</h2>
+    <ol>
+      <li>Use authenticated API access for all non-public workflows.</li>
+      <li>Store outputs under tenant-scoped object paths.</li>
+      <li>Prefer signed URLs for downloads rather than permanent public links.</li>
+      <li>Encrypt storage at rest and TLS in transit.</li>
+      <li>Apply strict file size, type, and duration limits at upload time.</li>
+      <li>Run worker jobs in isolated temp directories and clean them after completion.</li>
+      <li>Define retention windows so user uploads do not remain indefinitely without purpose.</li>
+    </ol>
+    <p>
+      The privacy rationale matters especially for Surtaal because its current brand promise is local-first and
+      low-friction. A web version should not casually undermine that trust. The system should make retention and
+      deletion behavior explicit rather than treating media storage as an afterthought.
+    </p>
+
+    <h2>10. Reliability and Observability</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Concern</th>
+          <th>Recommendation</th>
+          <th>Why it matters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Job retries</td>
+          <td>Retry only idempotent or safely restartable jobs</td>
+          <td>Avoid duplicated outputs and runaway compute costs</td>
+        </tr>
+        <tr>
+          <td>Metrics</td>
+          <td>Track queue depth, job time, failure rate, worker utilization, storage throughput</td>
+          <td>These are the leading indicators for system stress</td>
+        </tr>
+        <tr>
+          <td>Structured logging</td>
+          <td>Log with <code>job_id</code>, <code>user_id</code>, operation type, and worker hostname</td>
+          <td>Essential for debugging distributed failures</td>
+        </tr>
+        <tr>
+          <td>Health checks</td>
+          <td>Separate readiness for API and worker liveness</td>
+          <td>Prevents unhealthy workers or cold APIs from serving traffic incorrectly</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>11. Cost and Product Tradeoffs</h2>
+    <p>
+      A web version of Surtaal introduces ongoing infrastructure cost that the local app does not have. The main
+      cost drivers will be compute time for Demucs, storage of uploaded and generated audio, and network egress for
+      downloads. That means the architecture should be designed with usage controls from the beginning.
+    </p>
+    <ul>
+      <li>Limit audio duration or file size per plan tier.</li>
+      <li>Expire temporary outputs automatically.</li>
+      <li>Separate heavy premium workflows from lightweight free workflows.</li>
+      <li>Track cost per operation so pricing can eventually reflect actual compute load.</li>
+    </ul>
+
+    <h2>12. Alternatives Considered</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Alternative</th>
+          <th>Why it is tempting</th>
+          <th>Why it is not the recommended default</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Browser-only implementation</td>
+          <td>No backend hosting cost and easier privacy story</td>
+          <td>Does not fit Surtaal's current Python and Demucs-heavy stack</td>
+        </tr>
+        <tr>
+          <td>Single VM running frontend, API, workers, and local files</td>
+          <td>Very fast MVP setup</td>
+          <td>Good pilot option, but weak scaling, durability, and operational isolation</td>
+        </tr>
+        <tr>
+          <td>Serverless functions for all processing</td>
+          <td>Operationally attractive on paper</td>
+          <td>Long-running audio workloads, native binaries, and model inference fit poorly</td>
+        </tr>
+        <tr>
+          <td>WebSockets-first architecture</td>
+          <td>Real-time feel</td>
+          <td>Higher complexity without solving the core compute and storage challenges</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>13. Recommended Rollout Plan</h2>
+    <h3>Phase 1: Practical MVP</h3>
+    <ol>
+      <li>Deploy static frontend, FastAPI API, one Redis instance, one Postgres instance, one object store.</li>
+      <li>Run a small worker pool on the same cloud provider.</li>
+      <li>Keep polling-based progress updates.</li>
+      <li>Implement upload limits, basic auth, retention cleanup, and signed downloads.</li>
+    </ol>
+
+    <h3>Phase 2: Operational hardening</h3>
+    <ol>
+      <li>Split worker queues by job type.</li>
+      <li>Add autoscaling and richer metrics.</li>
+      <li>Introduce project history and user libraries backed by Postgres.</li>
+      <li>Move toward direct-to-object-storage uploads for larger files.</li>
+    </ol>
+
+    <h3>Phase 3: Product expansion</h3>
+    <ol>
+      <li>Add collaborative workflows and saved projects.</li>
+      <li>Introduce push-based progress updates if product usage justifies it.</li>
+      <li>Offer regional deployment choices if privacy or latency becomes important.</li>
+    </ol>
+
+    <h2>14. Final Recommendation</h2>
+    <p>
+      From a system design perspective, Surtaal should not be treated as a conventional CRUD web app. It is a
+      media-processing platform whose central challenge is orchestrating expensive background work safely and
+      predictably. The recommended architecture therefore emphasizes decoupling: static frontend delivery, a thin
+      API control plane, a worker compute plane, durable storage, and clear separation between transient and
+      persistent state.
+    </p>
+    <p>
+      This is the right design because it preserves the mental model users already have in the local app, aligns
+      with the existing Python audio codebase, and creates a realistic path from MVP deployment to production-scale
+      operation without a full rewrite.
+    </p>
+
+    <p class="footer">
+      Prepared for the Surtaal repository as system design documentation for a potential web deployment architecture.
+    </p>
+  </main>
+</body>
+</html>
