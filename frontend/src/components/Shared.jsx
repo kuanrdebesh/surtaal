@@ -446,7 +446,7 @@ function LibraryModal({ mode = "pick", onPickFile, onClose, items: externalItems
   );
 }
 
-export function LibraryPickerButton({ onPickFile, label = "From Library", className = "btn-ghost", style, libraryItems = null }) {
+export function LibraryPickerButton({ onPickFile, label = "From Library", className = "btn-ghost", style, libraryItems = null, disabled = false }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -455,9 +455,11 @@ export function LibraryPickerButton({ onPickFile, label = "From Library", classN
         type="button"
         className={className}
         onClick={(e) => {
+          if (disabled) return;
           e.stopPropagation();
           setOpen(true);
         }}
+        disabled={disabled}
         style={style}
       >
         {label}
@@ -723,16 +725,16 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready", on
   );
 }
 
-export function JobStatus({ status, progress, results, error, downloadUrl, onAddToWorkshop, onDismiss, onSaveToLibrary }) {
+export function JobStatus({ status, progress, results, error, downloadUrl, onAddToWorkshop, onDismiss, onSaveToLibrary, onCancel, canceling = false }) {
 
   if (!status) return null;
 
-  if (status === "error") {
+  if (status === "error" || status === "cancelled") {
     return (
       <div className="error-box" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <span>⚠</span>
-          <span style={{ minWidth: 0 }}>{error}</span>
+          <span style={{ minWidth: 0 }}>{status === "cancelled" ? (error || "Operation cancelled.") : error}</span>
         </div>
         {onDismiss && (
           <button
@@ -751,9 +753,22 @@ export function JobStatus({ status, progress, results, error, downloadUrl, onAdd
   if (status === "processing") {
     return (
       <div className="status-box">
-        <div className="status-processing">
+        <div className="status-processing" style={{ justifyContent: "space-between", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div className="spinner" />
-          <span>Processing in background… you can keep using other tools.</span>
+            <span>{canceling ? "Cancelling current operation…" : "Processing in background… you can keep using other tools."}</span>
+          </div>
+          {onCancel && (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={onCancel}
+              disabled={canceling}
+              style={{ padding: "4px 10px", fontSize: 11, flexShrink: 0 }}
+            >
+              {canceling ? "Cancelling…" : "Cancel"}
+            </button>
+          )}
         </div>
         <div className="progress-bar-wrap">
           <div className="progress-bar-fill" style={{ width: `${progress}%` }} />

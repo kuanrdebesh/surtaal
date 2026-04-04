@@ -49,6 +49,7 @@ Everything runs **100% locally on your Mac**. After setup, most workflows do not
 
 - Live guide inside the app: `http://localhost:3000/how-to-use.html`
 - Shareable standalone guide in this repo: `Surtaal-How-To-Guide-Standalone.html`
+- Dedicated troubleshooting guide in this repo: `TROUBLESHOOTING.md`
 
 ---
 

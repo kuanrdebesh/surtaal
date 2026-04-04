@@ -7,20 +7,24 @@ export function useJob(options = {}) {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
+  const [jobId, setJobId] = useState(null);
+  const [canceling, setCanceling] = useState(false);
   const pollRef = useRef(null);
 
   useEffect(() => {
     if (!jobKey || typeof window === "undefined") return;
     window.dispatchEvent(new CustomEvent("surtaal-job", {
-      detail: { jobKey, label, status, progress, error, results },
+      detail: { jobKey, label, status, progress, error, results, jobId, canceling },
     }));
-  }, [jobKey, label, status, progress, error, results]);
+  }, [jobKey, label, status, progress, error, results, jobId, canceling]);
 
   const reset = useCallback(() => {
     setStatus(null);
     setProgress(0);
     setResults([]);
     setError(null);
+    setJobId(null);
+    setCanceling(false);
     clearInterval(pollRef.current);
   }, []);
 
@@ -37,16 +41,24 @@ export function useJob(options = {}) {
 
         if (data.status === "done") {
           clearInterval(pollRef.current);
+          setCanceling(false);
           setStatus("done");
           setProgress(100);
           setResults(data.files || []);
+        } else if (data.status === "cancelled") {
+          clearInterval(pollRef.current);
+          setCanceling(false);
+          setStatus("cancelled");
+          setError(data.message || "Operation cancelled.");
         } else if (data.status === "error") {
           clearInterval(pollRef.current);
+          setCanceling(false);
           setStatus("error");
           setError(data.message || "Processing failed");
         }
       } catch (e) {
         clearInterval(pollRef.current);
+        setCanceling(false);
         setStatus("error");
         setError("Cannot reach backend. Is it running?");
       }
@@ -64,28 +76,45 @@ export function useJob(options = {}) {
       });
       if (!res.ok) {
         const err = await res.json();
+        setCanceling(false);
         setStatus("error");
         setError(err.detail || "Request failed");
         return;
       }
       const data = await res.json();
       if (data.job_id) {
+        setJobId(data.job_id);
         pollJob(data.job_id);
       } else if (data.bpm !== undefined) {
+        setCanceling(false);
         setStatus("done");
         setResults([{ bpm: data.bpm }]);
       } else {
+        setCanceling(false);
         setStatus("error");
         setError("The backend returned an unexpected response.");
       }
       return data;
     } catch (e) {
+      setCanceling(false);
       setStatus("error");
       setError("Cannot reach backend. Make sure the server is running on port 8000.");
     }
   }, [pollJob, reset]);
 
+  const cancel = useCallback(async () => {
+    if (!jobId || status !== "processing" || canceling) return;
+    setCanceling(true);
+    try {
+      await fetch(`${API_BASE}/job/${jobId}/cancel`, { method: "POST" });
+    } catch (e) {
+      setCanceling(false);
+      setStatus("error");
+      setError("Could not cancel the current operation.");
+    }
+  }, [jobId, status, canceling]);
+
   const downloadUrl = (filename) => `${API_BASE}/download/${filename}`;
 
-  return { status, progress, results, error, submit, reset, downloadUrl };
+  return { status, progress, results, error, submit, reset, downloadUrl, cancel, canceling, jobId };
 }

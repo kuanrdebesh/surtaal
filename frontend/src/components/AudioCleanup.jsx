@@ -1042,10 +1042,11 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
   const [outputPlayhead, setOutputPlayhead] = useState(0);
   const [viewMode, setViewMode] = useState("waveform");
   const [spectrumZoom, setSpectrumZoom] = useState(1);
-  const { status, progress, results, error, submit, reset } = useJob({
+  const { status, progress, results, error, submit, reset, cancel, canceling } = useJob({
     jobKey: "cleanup",
     label: "Audio Enhancement",
   });
+  const busy = status === "processing";
 
   const inputAudioRef = useRef(null);
   const outputAudioRef = useRef(null);
@@ -1284,6 +1285,7 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
                 type="button"
                 className={panelMode === mode.id ? "btn-primary" : "btn-ghost"}
                 onClick={() => setPanelMode(mode.id)}
+                disabled={busy}
                 style={{ padding: "6px 10px", fontSize: 11, minWidth: 76 }}
               >
                 {mode.label}
@@ -1294,6 +1296,7 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
             <select
               value={activeEffect}
               onChange={(e) => setActiveEffect(e.target.value)}
+              disabled={busy}
               style={{
                 background: "var(--bg3)",
                 border: "1px solid var(--border)",
@@ -1338,11 +1341,12 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
             type="button"
             className="btn-ghost"
             onClick={() => uploadInputRef.current?.click()}
+            disabled={busy}
             style={{ padding: "6px 12px", fontSize: 12 }}
           >
             Choose File
           </button>
-          <LibraryPickerButton onPickFile={handleHeaderFile} libraryItems={libraryItems} style={{ padding: "6px 12px", fontSize: 12 }} />
+          <LibraryPickerButton onPickFile={handleHeaderFile} libraryItems={libraryItems} disabled={busy} style={{ padding: "6px 12px", fontSize: 12 }} />
           </div>
         </div>
         <div style={{
@@ -2091,7 +2095,7 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
             </>
           )}
 
-          {(status === "processing" || status === "error") && (
+          {(status === "processing" || status === "error" || status === "cancelled") && (
             <JobStatus
               status={status}
               progress={progress}
@@ -2099,6 +2103,8 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
               error={error}
               onDismiss={reset}
               onSaveToLibrary={onSaveToLibrary}
+              onCancel={cancel}
+              canceling={canceling}
             />
           )}
           </div>
@@ -2113,10 +2119,10 @@ export default function AudioCleanup({ onAddToWorkshop, libraryItems, onSaveToLi
               className="btn-primary"
               type="button"
               onClick={handleSubmit}
-              disabled={!file || !hasAnyEffect || !hasSelection || status === "processing"}
+              disabled={!file || !hasAnyEffect || !hasSelection || busy}
               style={{ width: "100%" }}
             >
-              {status === "processing"
+              {busy
                 ? (panelMode === "effects" ? "Adding effects…" : "Enhancing audio…")
                 : (panelMode === "effects" ? "✦ Add Effect" : "✦ Apply Enhancement")}
             </button>

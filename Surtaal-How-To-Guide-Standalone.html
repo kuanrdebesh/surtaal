@@ -831,14 +831,25 @@
           <section class="content-card" id="troubleshooting">
             <div class="eyebrow">Troubleshooting</div>
             <h2>Common issues and what to check first.</h2>
+            <p class="lede">
+              Read the exact error first, cancel the current job if needed, retry once, then use the matching fix below.
+            </p>
             <div class="tips">
               <div class="tip">
                 <strong>Nothing happens after clicking a button</strong>
                 Make sure the backend is running. Restart Surtaal with <code>./start.sh</code>.
               </div>
               <div class="tip">
+                <strong>You want to stop a long-running job and try again</strong>
+                Use the <code>Cancel</code> button in the section status panel or in the floating background notification. Wait for the job to become cancelled before starting a new action.
+              </div>
+              <div class="tip">
                 <strong>Processing feels slow</strong>
                 Stem separation is local and CPU-heavy on many Macs. Let it run in the background while you continue using the app.
+              </div>
+              <div class="tip">
+                <strong>Best Quality stem extraction fails</strong>
+                Retry once. If it still fails, switch to <code>Fast</code> or request fewer stems. First-time Demucs runs can also feel slower while models are downloading or warming up.
               </div>
               <div class="tip">
                 <strong>Audio is not playing in the browser</strong>
@@ -852,7 +863,22 @@
                 <strong>Generated audio will not scrub correctly</strong>
                 Update to the latest Surtaal build. Newer versions serve output files with byte-range support so the native audio seek bar works on generated stems and processed tracks.
               </div>
+              <div class="tip">
+                <strong>Library items are hard to track</strong>
+                Open the header <code>Library</code> button to confirm what is saved, rename items, or delete items you no longer need. The Library is meant to be your current-session reuse hub.
+              </div>
+              <div class="tip">
+                <strong>Workshop or the app feels cramped</strong>
+                Collapse the left app sidebar with the hamburger button, resize the Workshop panel, or save useful outputs to the Library first so you only import what you need.
+              </div>
+              <div class="tip">
+                <strong>Windows desktop build shows old behavior</strong>
+                Make sure the latest files were copied into the correct folders, then test <code>dist\win-unpacked\Surtaal.exe</code> before testing the installer.
+              </div>
             </div>
+            <p class="lede" style="margin-top: 18px;">
+              For a fuller issue-by-issue checklist, see <code>TROUBLESHOOTING.md</code> in the Surtaal repo.
+            </p>
           </section>
 
           <section class="content-card" id="shortcuts">

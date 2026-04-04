@@ -34,6 +34,47 @@ job_status = {}
 library_lock = Lock()
 LIBRARY_INDEX_PATH = LIBRARY_DIR / "index.json"
 
+
+class JobCancelled(Exception):
+    pass
+
+
+def _init_job(job_id: str) -> None:
+    job_status[job_id] = {
+        "status": "processing",
+        "progress": 0,
+        "cancel_requested": False,
+    }
+
+
+def _cancel_requested(job_id: str) -> bool:
+    return bool(job_status.get(job_id, {}).get("cancel_requested"))
+
+
+def _ensure_not_cancelled(job_id: str) -> None:
+    if _cancel_requested(job_id):
+        raise JobCancelled("Operation cancelled.")
+
+
+def _is_cancelled_exception(exc: Exception) -> bool:
+    return str(exc).strip() == "Operation cancelled."
+
+
+def _mark_job_cancelled(job_id: str, message: str = "Operation cancelled.") -> None:
+    job_status[job_id] = {
+        "status": "cancelled",
+        "message": message,
+        "progress": max(0, job_status.get(job_id, {}).get("progress", 0)),
+    }
+
+
+def _progress_updater(job_id: str):
+    def update(progress: int) -> None:
+        _ensure_not_cancelled(job_id)
+        if job_id in job_status:
+            job_status[job_id]["progress"] = progress
+    return update
+
 def _safe_stem(name: str) -> str:
     stem = Path(name or "track").stem.strip()
     cleaned = "".join(ch if ch.isalnum() else "_" for ch in stem)
@@ -139,6 +180,18 @@ def get_job(job_id: str):
         raise HTTPException(status_code=404, detail="Job not found")
     return job_status[job_id]
 
+
+@app.post("/job/{job_id}/cancel")
+def cancel_job(job_id: str):
+    if job_id not in job_status:
+        raise HTTPException(status_code=404, detail="Job not found")
+    current = job_status[job_id]
+    if current.get("status") != "processing":
+        return {"ok": True, "job_id": job_id, "status": current.get("status")}
+    current["cancel_requested"] = True
+    current["message"] = "Cancelling…"
+    return {"ok": True, "job_id": job_id, "status": "cancelling"}
+
 @app.get("/download/{filename}")
 def download_file(filename: str, range_header: Optional[str] = Header(None, alias="Range")):
     path = _resolve_download_path(filename)
@@ -211,7 +264,7 @@ async def stem_separate(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     requested_targets = [part.strip() for part in target_stems.split(",") if part.strip()]
     background_tasks.add_task(_stem_separate_task, job_id, input_path, stems, engine, quality, requested_targets)
     return {"job_id": job_id}
@@ -219,6 +272,7 @@ async def stem_separate(
 async def _stem_separate_task(job_id: str, input_path: Path, stems: str, engine: str, quality: str, target_stems: list[str]):
     try:
         from audio_ops import stem_separate
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 10
         results = await asyncio.to_thread(
             stem_separate,
@@ -227,14 +281,21 @@ async def _stem_separate_task(job_id: str, input_path: Path, stems: str, engine:
             engine,
             quality,
             target_stems,
-            lambda progress: job_status.get(job_id, {}).update(progress=progress),
+            _progress_updater(job_id),
+            lambda: _cancel_requested(job_id),
         )
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {
             "status": "done",
             "progress": 100,
             "files": results,
         }
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Stem separation failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -251,22 +312,30 @@ async def vocal_remove(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(_vocal_remove_task, job_id, input_path, quality)
     return {"job_id": job_id}
 
 async def _vocal_remove_task(job_id: str, input_path: Path, quality: str):
     try:
         from audio_ops import vocal_remove
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 10
         result = await asyncio.to_thread(
             vocal_remove,
             input_path,
             quality,
-            lambda progress: job_status.get(job_id, {}).update(progress=progress),
+            _progress_updater(job_id),
+            lambda: _cancel_requested(job_id),
         )
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Vocal removal failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -299,17 +368,24 @@ async def pitch_shift(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(_pitch_shift_task, job_id, input_path, semitones, output_format)
     return {"job_id": job_id}
 
 async def _pitch_shift_task(job_id: str, input_path: Path, semitones: float, output_format: str):
     try:
         from audio_ops import pitch_shift
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 20
         result = await asyncio.to_thread(pitch_shift, input_path, semitones, output_format)
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Pitch shift failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -341,17 +417,24 @@ async def tempo_change(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(_tempo_change_task, job_id, input_path, factor, output_format, target_bpm)
     return {"job_id": job_id}
 
 async def _tempo_change_task(job_id: str, input_path: Path, factor: float, output_format: str, target_bpm: Optional[int]):
     try:
         from audio_ops import tempo_change
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 20
         result = await asyncio.to_thread(tempo_change, input_path, factor, output_format, target_bpm)
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Tempo change failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -411,7 +494,7 @@ async def audio_cleanup(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(
         _audio_cleanup_task,
         job_id,
@@ -513,6 +596,7 @@ async def _audio_cleanup_task(
 ):
     try:
         from audio_cleanup import cleanup_audio
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 12
         result = await asyncio.to_thread(
             cleanup_audio,
@@ -561,10 +645,17 @@ async def _audio_cleanup_task(
             selected_start_ms=selected_start_ms,
             selected_end_ms=selected_end_ms,
             output_format=output_format,
-            progress_cb=lambda progress: job_status.get(job_id, {}).update(progress=progress),
+            progress_cb=_progress_updater(job_id),
+            cancel_cb=lambda: _cancel_requested(job_id),
         )
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Audio enhancement failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -587,7 +678,7 @@ async def mix_export(
 ):
     paths = [save_upload(f) for f in files]
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(
         _mix_export_task, job_id, paths,
         trim_starts, trim_ends, fade_ins, fade_outs,
@@ -599,13 +690,20 @@ async def _mix_export_task(job_id, paths, trim_starts, trim_ends,
                             fade_ins, fade_outs, volumes, time_offsets, output_format):
     try:
         from audio_ops import mix_export
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 10
         result = await asyncio.to_thread(
             mix_export, paths, trim_starts, trim_ends,
             fade_ins, fade_outs, volumes, time_offsets, output_format
         )
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Mix export failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -626,17 +724,24 @@ async def stitch_audio(
 ):
     paths = [save_upload(f) for f in files]
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(_stitch_task, job_id, paths, fade_duration, crossfade, silence_duration, output_format)
     return {"job_id": job_id}
 
 async def _stitch_task(job_id: str, paths, fade_duration, crossfade, silence_duration, output_format):
     try:
         from audio_ops import stitch_audio
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 10
         result = await asyncio.to_thread(stitch_audio, paths, fade_duration, crossfade, output_format, silence_duration)
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Stitching failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -658,7 +763,7 @@ async def trim_fade(
 ):
     input_path = save_upload(file)
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(
         _trim_fade_task, job_id, input_path, start_ms, end_ms,
         fade_in_ms, fade_out_ms, output_format
@@ -668,10 +773,17 @@ async def trim_fade(
 async def _trim_fade_task(job_id, input_path, start_ms, end_ms, fade_in_ms, fade_out_ms, output_format):
     try:
         from audio_ops import trim_fade
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 20
         result = await asyncio.to_thread(trim_fade, input_path, start_ms, end_ms, fade_in_ms, fade_out_ms, output_format)
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Trim/fade failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
     finally:
@@ -731,17 +843,24 @@ async def export_mix_endpoint(
         })
 
     job_id = str(uuid.uuid4())
-    job_status[job_id] = {"status": "processing", "progress": 0}
+    _init_job(job_id)
     background_tasks.add_task(_export_mix_task, job_id, tracks, output_format)
     return {"job_id": job_id}
 
 async def _export_mix_task(job_id: str, tracks: list, output_format: str):
     try:
         from audio_ops import export_mix
+        _ensure_not_cancelled(job_id)
         job_status[job_id]["progress"] = 20
         result = await asyncio.to_thread(export_mix, tracks, output_format)
+        _ensure_not_cancelled(job_id)
         job_status[job_id] = {"status": "done", "progress": 100, "files": result}
+    except JobCancelled as e:
+        _mark_job_cancelled(job_id, str(e))
     except Exception as e:
+        if _is_cancelled_exception(e):
+            _mark_job_cancelled(job_id, str(e))
+            return
         logger.error(f"Mix export failed: {e}")
         job_status[job_id] = {"status": "error", "message": str(e)}
 

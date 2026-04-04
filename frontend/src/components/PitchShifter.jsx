@@ -44,10 +44,11 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
   const [format, setFormat] = useState("mp3");
   const [detectedKey, setDetectedKey] = useState(null);
   const [detecting, setDetecting] = useState(false);
-  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset, cancel, canceling } = useJob({
     jobKey: "pitch",
     label: "Pitch Shift",
   });
+  const busy = status === "processing";
 
   const totalSemitones = semitones + cents / 100;
   const noChange = semitones === 0 && cents === 0;
@@ -94,7 +95,7 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
       <div className="section">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <p className="section-label" style={{ marginBottom: 0 }}>Upload Audio</p>
-          <LibraryPickerButton onPickFile={handleFile} libraryItems={libraryItems} />
+          <LibraryPickerButton onPickFile={handleFile} libraryItems={libraryItems} disabled={busy} />
         </div>
         <DropZone onFile={handleFile} label="Drop a track — key will be detected automatically" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
@@ -138,8 +139,9 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
           </label>
           <div className="range-row">
             <input type="range" min="-12" max="12" step="1" value={semitones}
-              onChange={(e) => setSemitones(Number(e.target.value))} />
+              onChange={(e) => setSemitones(Number(e.target.value))} disabled={busy} />
             <input type="number" min="-12" max="12" value={semitones}
+              disabled={busy}
               onChange={(e) => setSemitones(Math.max(-12, Math.min(12, Number(e.target.value))))}
               style={{ width: 56, textAlign: "center" }} />
           </div>
@@ -153,8 +155,9 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
           </label>
           <div className="range-row">
             <input type="range" min="-100" max="100" step="1" value={cents}
-              onChange={(e) => setCents(Number(e.target.value))} />
+              onChange={(e) => setCents(Number(e.target.value))} disabled={busy} />
             <input type="number" min="-100" max="100" value={cents}
+              disabled={busy}
               onChange={(e) => setCents(Math.max(-100, Math.min(100, Number(e.target.value))))}
               style={{ width: 56, textAlign: "center" }} />
           </div>
@@ -168,7 +171,7 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {[{label:"−1 oct",st:-12},{label:"−5th",st:-7},{label:"−4th",st:-5},{label:"0",st:0},{label:"+4th",st:5},{label:"+5th",st:7},{label:"+1 oct",st:12}].map(({ label, st }) => (
               <button key={st} className="btn-ghost"
-                onClick={() => { setSemitones(st); setCents(0); }} title={`Jump to ${label} interval`}
+                onClick={() => { setSemitones(st); setCents(0); }} title={`Jump to ${label} interval`} disabled={busy}
                 style={{ padding:"5px 11px", fontSize:12, borderColor: semitones===st&&cents===0 ? "var(--accent)" : undefined, color: semitones===st&&cents===0 ? "var(--accent)" : undefined }}>
                 {label}
               </button>
@@ -177,7 +180,7 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
         </div>
 
         {!noChange && (
-          <button className="btn-ghost" title="Reset pitch to original key" style={{ fontSize:12, padding:"5px 12px", marginBottom: 16 }}
+          <button className="btn-ghost" title="Reset pitch to original key" style={{ fontSize:12, padding:"5px 12px", marginBottom: 16 }} disabled={busy}
             onClick={() => { setSemitones(0); setCents(0); }}>
             ↺ Reset to original
           </button>
@@ -192,8 +195,8 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
         </div>
       </div>
 
-      <button className="btn-primary" title="Apply pitch shift and export" onClick={handleSubmit} disabled={!file || status === "processing" || noChange}>
-        {status === "processing" ? "Shifting pitch…" : "♯ Apply Pitch Shift"}
+      <button className="btn-primary" title="Apply pitch shift and export" onClick={handleSubmit} disabled={!file || busy || noChange}>
+        {busy ? "Shifting pitch…" : "♯ Apply Pitch Shift"}
       </button>
       {noChange && file && <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>Adjust semitones or cents to enable processing.</p>}
 
@@ -206,6 +209,8 @@ export default function PitchShifter({ libraryItems, onSaveToLibrary, onAddToWor
         onAddToWorkshop={onAddToWorkshop}
         onDismiss={reset}
         onSaveToLibrary={onSaveToLibrary}
+        onCancel={cancel}
+        canceling={canceling}
       />
     </div>
   );

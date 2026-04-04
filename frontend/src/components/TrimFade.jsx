@@ -16,7 +16,8 @@ export default function TrimFade() {
   const [fadeInMs, setFadeInMs] = useState(500);
   const [fadeOutMs, setFadeOutMs] = useState(1000);
   const [format, setFormat] = useState("mp3");
-  const { status, progress, results, error, submit, downloadUrl, reset } = useJob();
+  const { status, progress, results, error, submit, downloadUrl, reset, cancel, canceling } = useJob();
+  const busy = status === "processing";
 
   const handleSubmit = () => {
     if (!file) return;
@@ -40,6 +41,7 @@ export default function TrimFade() {
           max="99"
           value={minVal}
           onChange={(e) => onMin(e.target.value)}
+          disabled={busy}
           style={{ width: 64 }}
         />
         <span style={{ color: "var(--muted)" }}>m</span>
@@ -49,6 +51,7 @@ export default function TrimFade() {
           max="59"
           value={secVal}
           onChange={(e) => onSec(e.target.value)}
+          disabled={busy}
           style={{ width: 64 }}
         />
         <span style={{ color: "var(--muted)" }}>s</span>
@@ -88,6 +91,7 @@ export default function TrimFade() {
                   type="checkbox"
                   checked={useEnd}
                   onChange={(e) => setUseEnd(e.target.checked)}
+                  disabled={busy}
                 />
                 <span className="toggle-slider" />
               </label>
@@ -101,6 +105,7 @@ export default function TrimFade() {
                   max="99"
                   value={endMin}
                   onChange={(e) => setEndMin(e.target.value)}
+                  disabled={busy}
                   style={{ width: 64 }}
                 />
                 <span style={{ color: "var(--muted)" }}>m</span>
@@ -110,6 +115,7 @@ export default function TrimFade() {
                   max="59"
                   value={endSec}
                   onChange={(e) => setEndSec(e.target.value)}
+                  disabled={busy}
                   style={{ width: 64 }}
                 />
                 <span style={{ color: "var(--muted)" }}>s</span>
@@ -132,6 +138,7 @@ export default function TrimFade() {
                 step="100"
                 value={fadeInMs}
                 onChange={(e) => setFadeInMs(Number(e.target.value))}
+                disabled={busy}
               />
               <span className="range-value">{(fadeInMs / 1000).toFixed(1)}s</span>
             </div>
@@ -146,6 +153,7 @@ export default function TrimFade() {
                 step="100"
                 value={fadeOutMs}
                 onChange={(e) => setFadeOutMs(Number(e.target.value))}
+                disabled={busy}
               />
               <span className="range-value">{(fadeOutMs / 1000).toFixed(1)}s</span>
             </div>
@@ -160,9 +168,9 @@ export default function TrimFade() {
       <button
         className="btn-primary"
         onClick={handleSubmit}
-        disabled={!file || status === "processing"}
+        disabled={!file || busy}
       >
-        {status === "processing" ? "Processing…" : "◁▷ Trim & Export"}
+        {busy ? "Processing…" : "◁▷ Trim & Export"}
       </button>
 
       <JobStatus
@@ -172,6 +180,8 @@ export default function TrimFade() {
         error={error}
         downloadUrl={downloadUrl}
         onDismiss={reset}
+        onCancel={cancel}
+        canceling={canceling}
       />
     </div>
   );

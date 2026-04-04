@@ -61,10 +61,11 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
   const [quality, setQuality] = useState("fast");
   const [requestedStems, setRequestedStems] = useState([]);
   const [collectedResults, setCollectedResults] = useState([]);
-  const { status, progress, results, error, submit, reset } = useJob({
+  const { status, progress, results, error, submit, reset, cancel, canceling } = useJob({
     jobKey: "stem",
     label: "Stem Separator",
   });
+  const busy = status === "processing";
 
   const extractedKeys = useMemo(
     () => new Set(collectedResults.map((result) => normalizeResultKey(result.label))),
@@ -201,15 +202,15 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
                       key={stem.value}
                       type="button"
                       onClick={() => toggleStem(stem.value)}
-                      disabled={disabled}
-                      style={{
+                    disabled={disabled || busy}
+                    style={{
                         padding: "8px 12px",
                         borderRadius: 999,
                         border: `1px solid ${active ? "rgba(201,125,58,0.45)" : "var(--border)"}`,
                         background: active ? "rgba(201,125,58,0.1)" : "rgba(255,255,255,0.03)",
                         color: disabled ? "var(--muted)" : active ? "var(--accent)" : "var(--text)",
-                        cursor: disabled ? "not-allowed" : "pointer",
-                        opacity: disabled ? 0.55 : 1,
+                        cursor: disabled || busy ? "not-allowed" : "pointer",
+                        opacity: disabled || busy ? 0.55 : 1,
                         fontSize: 12,
                         fontWeight: 600,
                       }}
@@ -245,7 +246,7 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
         <p className="section-label">Processing Speed</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           {QUALITY_OPTIONS.map((opt) => {
-            const disabled = sixStemRequired && opt.value === "fast";
+            const disabled = busy || (sixStemRequired && opt.value === "fast");
             const active = quality === opt.value || (sixStemRequired && opt.value === "best");
             return (
               <label
@@ -290,15 +291,16 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
           className="btn-primary"
           title="Extract only the selected stems"
           onClick={handleSubmit}
-          disabled={!file || requestedStems.length === 0 || status === "processing"}
+          disabled={!file || requestedStems.length === 0 || busy}
         >
-          {status === "processing" ? "Extracting stems…" : `⟁ ${buttonLabel}`}
+          {busy ? "Extracting stems…" : `⟁ ${buttonLabel}`}
         </button>
         {collectedResults.length > 0 && (
           <button
             className="btn-ghost"
             type="button"
             onClick={clearExtracted}
+            disabled={busy}
           >
             Clear extracted stems
           </button>
@@ -313,6 +315,8 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
         onAddToWorkshop={onAddToWorkshop}
         onDismiss={reset}
         onSaveToLibrary={onSaveToLibrary}
+        onCancel={cancel}
+        canceling={canceling}
       />
 
       <ResultsPanel

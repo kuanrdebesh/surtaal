@@ -18,10 +18,11 @@ const QUALITY_OPTIONS = [
 export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLibrary }) {
   const [file, setFile] = useState(null);
   const [quality, setQuality] = useState("fast");
-  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset, cancel, canceling } = useJob({
     jobKey: "vocal",
     label: "Vocal Remover",
   });
+  const busy = status === "processing";
 
   const handleSubmit = () => {
     if (!file) return;
@@ -43,7 +44,7 @@ export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLi
       <div className="section">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <p className="section-label" style={{ marginBottom: 0 }}>Upload Song</p>
-          <LibraryPickerButton onPickFile={setFile} libraryItems={libraryItems} />
+          <LibraryPickerButton onPickFile={setFile} libraryItems={libraryItems} disabled={busy} />
         </div>
         <DropZone onFile={setFile} label="Drop the song you want karaoke for" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
@@ -71,7 +72,8 @@ export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLi
                   borderRadius: 10,
                   border: `1px solid ${active ? "rgba(139,78,163,0.4)" : "var(--border)"}`,
                   background: active ? "rgba(139,78,163,0.08)" : "var(--bg3)",
-                  cursor: "pointer",
+                  cursor: busy ? "not-allowed" : "pointer",
+                  opacity: busy ? 0.55 : 1,
                 }}
               >
                 <input
@@ -79,6 +81,7 @@ export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLi
                   name="vocal-quality"
                   value={opt.value}
                   checked={active}
+                  disabled={busy}
                   onChange={() => setQuality(opt.value)}
                   style={{ marginTop: 2, accentColor: "var(--accent)" }}
                 />
@@ -100,9 +103,9 @@ export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLi
         className="btn-primary"
         title="Remove vocals and generate karaoke backing track"
         onClick={handleSubmit}
-        disabled={!file || status === "processing"}
+        disabled={!file || busy}
       >
-        {status === "processing" ? "Removing vocals…" : "♬ Remove Vocals"}
+        {busy ? "Removing vocals…" : "♬ Remove Vocals"}
       </button>
 
       <JobStatus
@@ -114,6 +117,8 @@ export default function VocalRemover({ onAddToWorkshop, libraryItems, onSaveToLi
         onAddToWorkshop={onAddToWorkshop}
         onDismiss={reset}
         onSaveToLibrary={onSaveToLibrary}
+        onCancel={cancel}
+        canceling={canceling}
       />
     </div>
   );

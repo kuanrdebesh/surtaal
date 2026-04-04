@@ -8,7 +8,8 @@ export default function MedleyBuilder() {
   const [crossfade, setCrossfade] = useState(true);
   const [format, setFormat] = useState("mp3");
   const inputRef = useRef();
-  const { status, progress, results, error, submit, downloadUrl, reset } = useJob();
+  const { status, progress, results, error, submit, downloadUrl, reset, cancel, canceling } = useJob();
+  const busy = status === "processing";
 
   const addFiles = (newFiles) => {
     const arr = Array.from(newFiles).map((f) => ({ file: f, id: Math.random().toString(36).slice(2) }));
@@ -60,9 +61,9 @@ export default function MedleyBuilder() {
         <div
           className="dropzone"
           style={{ padding: "20px 24px" }}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => !busy && inputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => { e.preventDefault(); addFiles(e.dataTransfer.files); }}
+          onDrop={(e) => { e.preventDefault(); if (!busy) addFiles(e.dataTransfer.files); }}
         >
           <input
             type="file"
@@ -71,6 +72,7 @@ export default function MedleyBuilder() {
             ref={inputRef}
             style={{ display: "none" }}
             onChange={(e) => addFiles(e.target.files)}
+            disabled={busy}
           />
           <span className="drop-icon" style={{ fontSize: 24 }}>⊕</span>
           <p className="drop-title" style={{ fontSize: 13 }}>Click or drop songs to add to the lineup</p>
@@ -94,16 +96,18 @@ export default function MedleyBuilder() {
                   <button
                     className="remove-btn"
                     onClick={() => moveUp(i)}
+                    disabled={busy}
                     title="Move up"
                     style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: "2px 5px" }}
                   >↑</button>
                   <button
                     className="remove-btn"
                     onClick={() => moveDown(i)}
+                    disabled={busy}
                     title="Move down"
                     style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", padding: "2px 5px" }}
                   >↓</button>
-                  <button className="remove-btn" onClick={() => removeFile(f.id)} title="Remove">✕</button>
+                  <button className="remove-btn" onClick={() => removeFile(f.id)} title="Remove" disabled={busy}>✕</button>
                 </div>
               </div>
             ))}
@@ -130,6 +134,7 @@ export default function MedleyBuilder() {
               step="500"
               value={fadeMs}
               onChange={(e) => setFadeMs(Number(e.target.value))}
+              disabled={busy}
             />
             <span className="range-value">{(fadeMs / 1000).toFixed(1)}s</span>
           </div>
@@ -141,6 +146,7 @@ export default function MedleyBuilder() {
               type="checkbox"
               checked={crossfade}
               onChange={(e) => setCrossfade(e.target.checked)}
+              disabled={busy}
             />
             <span className="toggle-slider" />
           </label>
@@ -161,9 +167,9 @@ export default function MedleyBuilder() {
       <button
         className="btn-primary"
         onClick={handleSubmit}
-        disabled={files.length < 2 || status === "processing"}
+        disabled={files.length < 2 || busy}
       >
-        {status === "processing" ? "Building medley…" : `⊕ Build Medley (${files.length} songs)`}
+        {busy ? "Building medley…" : `⊕ Build Medley (${files.length} songs)`}
       </button>
 
       <JobStatus
@@ -173,6 +179,8 @@ export default function MedleyBuilder() {
         error={error}
         downloadUrl={downloadUrl}
         onDismiss={reset}
+        onCancel={cancel}
+        canceling={canceling}
       />
     </div>
   );

@@ -239,6 +239,7 @@ def _run_demucs_embedded(
     *,
     expected_bars: int = 1,
     progress_cb: Optional[Callable[[int], None]] = None,
+    cancel_cb: Optional[Callable[[], bool]] = None,
 ) -> str:
     from demucs.separate import main as demucs_main
 
@@ -247,6 +248,8 @@ def _run_demucs_embedded(
 
     try:
         with redirect_stdout(stream_capture), redirect_stderr(stream_capture):
+            if cancel_cb and cancel_cb():
+                raise RuntimeError("Operation cancelled.")
             demucs_main(demucs_args)
     except SystemExit as exc:
         combined_output = finish()
@@ -272,6 +275,7 @@ def _run_demucs(
     *,
     expected_bars: int = 1,
     progress_cb: Optional[Callable[[int], None]] = None,
+    cancel_cb: Optional[Callable[[], bool]] = None,
 ) -> str:
     """
     Run Demucs and, when possible, translate its real tqdm output into a
@@ -289,6 +293,13 @@ def _run_demucs(
 
     assert process.stdout is not None
     while True:
+        if cancel_cb and cancel_cb():
+            process.terminate()
+            try:
+                process.wait(timeout=2)
+            except Exception:
+                process.kill()
+            raise RuntimeError("Operation cancelled.")
         char = process.stdout.read(1)
         if char == "":
             if process.poll() is not None:
@@ -315,7 +326,10 @@ def _demucs_profile(stems: str, quality: str) -> tuple[str, list[str], int]:
         return "htdemucs_6s", ["--mp3-preset", "2"], 1
 
     if quality == "best":
-        return "htdemucs_ft", ["--mp3-preset", "2"], 4
+        # htdemucs_ft is transformer-based and rejects segments longer than
+        # the model's training maximum (~7.8s). Cap it explicitly so Best
+        # Quality works reliably instead of failing at runtime.
+        return "htdemucs_ft", ["--mp3-preset", "2", "--segment", "7", "--overlap", "0.1", "-j", "2"], 4
 
     # Fast mode should be a true single-model path with more aggressive CPU-
     # friendly settings. Use the lighter MDX model for the common 2-stem
@@ -323,6 +337,17 @@ def _demucs_profile(stems: str, quality: str) -> tuple[str, list[str], int]:
     if stems == "2":
         return "mdx", ["--mp3-preset", "7", "--segment", "8", "--overlap", "0.1", "-j", "2"], 1
     return "htdemucs", ["--mp3-preset", "7", "--segment", "8", "--overlap", "0.1", "-j", "2"], 1
+
+
+def _demucs_best_fallback_profile(stems: str) -> tuple[str, list[str], int]:
+    """
+    Fallback path for Best mode if the fine-tuned transformer model rejects
+    the requested segment size at runtime on a given Demucs build.
+    """
+    stems = str(stems or "2")
+    if stems == "2":
+        return "htdemucs", ["--mp3-preset", "2", "--segment", "7", "--overlap", "0.1", "-j", "2"], 1
+    return "htdemucs", ["--mp3-preset", "2", "--segment", "7", "--overlap", "0.1", "-j", "2"], 1
 
 
 # ── STEM SEPARATION ──────────────────────────────────────────────────────────
@@ -334,27 +359,45 @@ def stem_separate(
     quality: str = "fast",
     target_stems: Optional[list[str]] = None,
     progress_cb: Optional[Callable[[int], None]] = None,
+    cancel_cb: Optional[Callable[[], bool]] = None,
 ) -> list[dict]:
+    def run_profile(model_name: str, extra_cli_args: list[str], expected_bars: int) -> None:
+        demucs_args = ["--out", str(out_dir), "--mp3", "-n", model_name, *extra_cli_args]
+        if len(normalized_targets) == 1:
+            target = normalized_targets[0]
+            demucs_target = "vocals" if target == "no_vocals" else target
+            demucs_args += ["--two-stems", demucs_target]
+        elif effective_stems == "2":
+            demucs_args += ["--two-stems", "vocals"]
+        demucs_args.append(str(input_path))
+
+        if cancel_cb and cancel_cb():
+            raise RuntimeError("Operation cancelled.")
+
+        if getattr(sys, "frozen", False):
+            _run_demucs_embedded(demucs_args, expected_bars=expected_bars, progress_cb=progress_cb, cancel_cb=cancel_cb)
+        else:
+            cmd = [sys.executable, "-m", "demucs", *demucs_args]
+            _run_demucs(cmd, expected_bars=expected_bars, progress_cb=progress_cb, cancel_cb=cancel_cb)
+
     source_base = _source_base(input_path)
     out_dir = OUTPUT_DIR / f"stems_{uuid.uuid4().hex[:8]}"
     out_dir.mkdir(exist_ok=True)
     normalized_targets = _normalize_target_stems(target_stems)
     effective_stems = _required_stem_family(normalized_targets, stems)
     model, extra_args, expected_bars = _demucs_profile(effective_stems, quality)
-    demucs_args = ["--out", str(out_dir), "--mp3", "-n", model, *extra_args]
-    if len(normalized_targets) == 1:
-        target = normalized_targets[0]
-        demucs_target = "vocals" if target == "no_vocals" else target
-        demucs_args += ["--two-stems", demucs_target]
-    elif effective_stems == "2":
-        demucs_args += ["--two-stems", "vocals"]
-    demucs_args.append(str(input_path))
-
-    if getattr(sys, "frozen", False):
-        _run_demucs_embedded(demucs_args, expected_bars=expected_bars, progress_cb=progress_cb)
-    else:
-        cmd = [sys.executable, "-m", "demucs", *demucs_args]
-        _run_demucs(cmd, expected_bars=expected_bars, progress_cb=progress_cb)
+    try:
+        run_profile(model, extra_args, expected_bars)
+    except RuntimeError as exc:
+        if quality == "best" and "Maximum segment is" in str(exc):
+            fallback_model, fallback_args, fallback_bars = _demucs_best_fallback_profile(effective_stems)
+            logger.warning(
+                "Best Demucs profile hit transformer segment limit; retrying with safer fallback model %s.",
+                fallback_model,
+            )
+            run_profile(fallback_model, fallback_args, fallback_bars)
+        else:
+            raise
 
     if progress_cb:
         progress_cb(99)
@@ -378,8 +421,9 @@ def vocal_remove(
     input_path: Path,
     quality: str = "fast",
     progress_cb: Optional[Callable[[int], None]] = None,
+    cancel_cb: Optional[Callable[[], bool]] = None,
 ) -> list[dict]:
-    results = stem_separate(input_path, stems="2", engine="demucs", quality=quality, progress_cb=progress_cb)
+    results = stem_separate(input_path, stems="2", engine="demucs", quality=quality, progress_cb=progress_cb, cancel_cb=cancel_cb)
     no_vocal = [r for r in results if "vocal" not in r["label"].lower()]
     return no_vocal if no_vocal else results
 

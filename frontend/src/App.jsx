@@ -189,8 +189,33 @@ export default function App() {
     });
   };
 
+  const cancelBackgroundJob = async (job) => {
+    if (!job?.jobId || job.status !== "processing" || job.canceling) return;
+    setBackgroundJobs((prev) => ({
+      ...prev,
+      [job.jobKey]: {
+        ...prev[job.jobKey],
+        canceling: true,
+      },
+    }));
+    try {
+      await fetch(`${API_BASE}/job/${job.jobId}/cancel`, { method: "POST" });
+    } catch (error) {
+      setBackgroundJobs((prev) => ({
+        ...prev,
+        [job.jobKey]: {
+          ...prev[job.jobKey],
+          canceling: false,
+          status: "error",
+          error: "Could not cancel the current operation.",
+          updatedAt: Date.now(),
+        },
+      }));
+    }
+  };
+
   const backgroundJobList = Object.values(backgroundJobs).sort((a, b) => {
-    const order = { processing: 0, error: 1, done: 2 };
+    const order = { processing: 0, cancelled: 1, error: 2, done: 3 };
     return (order[a.status] ?? 9) - (order[b.status] ?? 9) || (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
   });
 
@@ -398,8 +423,9 @@ export default function App() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{job.label}</div>
                   <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                    {job.status === "processing" && "Running in background — keep working."}
+                    {job.status === "processing" && (job.canceling ? "Cancelling current operation…" : "Running in background — keep working.")}
                     {job.status === "done" && "Finished. Open the tool to review results."}
+                    {job.status === "cancelled" && (job.error || "Operation cancelled.")}
                     {job.status === "error" && (job.error || "Job failed. Open the tool for details.")}
                   </div>
                 </div>
@@ -414,6 +440,17 @@ export default function App() {
                 >
                   Open
                 </button>
+                {job.status === "processing" && (
+                  <button
+                    className="btn-ghost"
+                    type="button"
+                    onClick={() => cancelBackgroundJob(job)}
+                    disabled={job.canceling}
+                    style={{ fontSize: 11, padding: "5px 10px" }}
+                  >
+                    {job.canceling ? "Cancelling…" : "Cancel"}
+                  </button>
+                )}
                 {job.status !== "processing" && (
                   <button
                     type="button"

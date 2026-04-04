@@ -389,6 +389,7 @@ def cleanup_audio(
     selected_end_ms: Optional[int] = None,
     output_format: str = "mp3",
     progress_cb: Optional[Callable[[int], None]] = None,
+    cancel_cb: Optional[Callable[[], bool]] = None,
 ) -> list[dict]:
     filters = _build_filters(
         remove_noise=remove_noise,
@@ -491,15 +492,27 @@ def cleanup_audio(
         if progress_cb:
             progress_cb(18)
 
-        process = subprocess.run(
+        process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
 
+        while process.poll() is None:
+            if cancel_cb and cancel_cb():
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except Exception:
+                    process.kill()
+                raise RuntimeError("Operation cancelled.")
+            __import__("time").sleep(0.1)
+
+        stdout, stderr = process.communicate()
+
         if process.returncode != 0:
-            tail = (process.stderr or process.stdout or "").strip()[-800:]
+            tail = (stderr or stdout or "").strip()[-800:]
             raise RuntimeError(f"Audio enhancement failed: {tail}")
 
         if progress_cb:

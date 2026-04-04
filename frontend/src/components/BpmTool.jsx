@@ -32,10 +32,11 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
   const [detecting, setDetecting] = useState(false);
   const [factor, setFactor] = useState(1.0);
   const [format, setFormat] = useState("mp3");
-  const { status, progress, results, error, submit, downloadUrl, reset } = useJob({
+  const { status, progress, results, error, submit, downloadUrl, reset, cancel, canceling } = useJob({
     jobKey: "bpm",
     label: "BPM & Tempo",
   });
+  const busy = status === "processing";
 
   const detectBpm = async () => {
     if (!file) return;
@@ -80,7 +81,7 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
       <div className="section">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <p className="section-label" style={{ marginBottom: 0 }}>Upload Audio</p>
-          <LibraryPickerButton onPickFile={(f) => { setFile(f); setDetectedBpm(null); }} libraryItems={libraryItems} />
+          <LibraryPickerButton onPickFile={(f) => { setFile(f); setDetectedBpm(null); }} libraryItems={libraryItems} disabled={busy} />
         </div>
         <DropZone onFile={(f) => { setFile(f); setDetectedBpm(null); }} label="Drop the track to analyze" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
@@ -94,7 +95,7 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
             className="btn-primary"
             title="Analyse the track and detect beats per minute"
             onClick={detectBpm}
-            disabled={!file || detecting}
+            disabled={!file || detecting || busy}
             style={{ flex: "0 0 auto" }}
           >
             {detecting ? "Analyzing…" : "◈ Detect BPM"}
@@ -134,6 +135,7 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
               step="0.05"
               value={factor}
               onChange={(e) => setFactor(Number(e.target.value))}
+              disabled={busy}
             />
             <span className="range-value">×{factor.toFixed(2)}</span>
           </div>
@@ -150,7 +152,7 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
             <button
               key={f}
               className="btn-ghost"
-              onClick={() => setFactor(f)} title={f === 1 ? 'Original speed' : `Set speed to ${f}x`}
+              onClick={() => setFactor(f)} title={f === 1 ? 'Original speed' : `Set speed to ${f}x`} disabled={busy}
               style={{ padding: "5px 12px", fontSize: 12, borderColor: factor === f ? "var(--accent)" : undefined, color: factor === f ? "var(--accent)" : undefined }}
             >
               {f === 1 ? "Original" : `×${f}`}
@@ -167,9 +169,9 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
         className="btn-primary"
         title="Apply tempo change and export"
         onClick={handleTempo}
-        disabled={!file || status === "processing" || factor === 1}
+        disabled={!file || busy || factor === 1}
       >
-        {status === "processing" ? "Adjusting tempo…" : "◈ Apply Tempo Change"}
+        {busy ? "Adjusting tempo…" : "◈ Apply Tempo Change"}
       </button>
 
       <JobStatus
@@ -180,6 +182,8 @@ export default function BpmTool({ libraryItems, onSaveToLibrary }) {
         downloadUrl={downloadUrl}
         onDismiss={reset}
         onSaveToLibrary={onSaveToLibrary}
+        onCancel={cancel}
+        canceling={canceling}
       />
     </div>
   );
