@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DropZone, JobStatus, ResultsPanel, UploadedAudioPreview } from "./Shared";
+import { DropZone, JobStatus, ResultsPanel, UploadedAudioPreview, LibraryPickerButton } from "./Shared";
 import { useJob } from "../useJob";
 
 const STEM_GROUPS = [
@@ -56,7 +56,7 @@ const displayStemLabel = (value) => STEM_META[value]?.label || value.replace(/_/
 
 const normalizeResultKey = (label) => label.trim().toLowerCase().replace(/\s+/g, "_");
 
-export default function StemSeparator({ onAddToWorkshop }) {
+export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToLibrary }) {
   const [file, setFile] = useState(null);
   const [quality, setQuality] = useState("fast");
   const [requestedStems, setRequestedStems] = useState([]);
@@ -163,7 +163,10 @@ export default function StemSeparator({ onAddToWorkshop }) {
       </div>
 
       <div className="section">
-        <p className="section-label">Upload Audio</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <p className="section-label" style={{ marginBottom: 0 }}>Upload Audio</p>
+          <LibraryPickerButton onPickFile={setFile} libraryItems={libraryItems} />
+        </div>
         <DropZone onFile={setFile} label="Drop your song here" />
         <UploadedAudioPreview file={file} label="Preview Upload" />
       </div>
@@ -309,12 +312,14 @@ export default function StemSeparator({ onAddToWorkshop }) {
         error={error}
         onAddToWorkshop={onAddToWorkshop}
         onDismiss={reset}
+        onSaveToLibrary={onSaveToLibrary}
       />
 
       <ResultsPanel
         results={collectedResults}
         onAddToWorkshop={onAddToWorkshop}
         title="✓ Extracted Stems"
+        onSaveToLibrary={onSaveToLibrary}
       />
     </div>
   );

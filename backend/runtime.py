@@ -17,6 +17,7 @@ def _dir_from_env(env_name: str, default_name: str) -> Path:
 
 UPLOAD_DIR = _dir_from_env("SURTAAL_UPLOAD_DIR", "uploads")
 OUTPUT_DIR = _dir_from_env("SURTAAL_OUTPUT_DIR", "outputs")
+LIBRARY_DIR = _dir_from_env("SURTAAL_LIBRARY_DIR", "library")
 MODEL_DIR = _dir_from_env("SURTAAL_MODEL_DIR", "models")
 BIN_DIR = _dir_from_env("SURTAAL_BIN_DIR", "bin")
 

@@ -18,7 +18,8 @@
   },
   "build": {
     "appId": "com.surtaal.desktop",
-    "productName": "Surtaal",
+    "productName": "SurTaal",
+    "icon": "desktop/resources/icon.png",
     "files": [
       "desktop/**/*",
       "frontend/dist/**/*",
@@ -52,7 +53,8 @@
       "buildResources": "desktop/resources"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "icon.ico"
     }
   }
 }

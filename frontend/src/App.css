@@ -102,19 +102,35 @@ body {
   gap: 12px;
 }
 
+.help-button {
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.help-button:hover {
+  background: linear-gradient(135deg, rgba(201,125,58,0.18), rgba(139,78,163,0.12));
+  border-color: rgba(201,125,58,0.3);
+}
+
 .logo-block {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.logo-icon {
-  font-size: 36px;
-  line-height: 1;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.logo-mark {
+  width: 42px;
+  height: 42px;
+  display: block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.22));
 }
 
 .logo-text {
@@ -234,6 +250,66 @@ body {
   overflow-y: auto;
   padding: 32px;
   background: var(--bg);
+}
+
+.help-embed-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  min-height: 100%;
+}
+
+.help-embed-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.help-embed-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.help-embed-subtitle {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.help-open-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.help-open-link:hover {
+  background: linear-gradient(135deg, rgba(201,125,58,0.14), rgba(139,78,163,0.1));
+  border-color: rgba(201,125,58,0.3);
+}
+
+.help-embed-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 680px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--bg2);
+  box-shadow: var(--shadow-lg);
 }
 
 /* ── TOOL CARD ── */
