@@ -21,14 +21,8 @@
     "productName": "SurTaal",
     "icon": "desktop/resources/icon.png",
     "files": [
-      "desktop/**/*",
-      "frontend/dist/**/*",
-      "backend/**/*.py",
-      "backend/runtime.py",
-      "backend/requirements.txt",
-      "backend/requirements-desktop.txt",
-      "backend/uploads/.gitkeep",
-      "backend/outputs/.gitkeep"
+      "desktop/electron/**/*",
+      "frontend/dist/**/*"
     ],
     "extraResources": [
       {
