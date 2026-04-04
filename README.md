@@ -1,17 +1,19 @@
 # 𝄞 Surtaal
 
-Audio studio for Indian performers to separate stems, create karaoke tracks, shift pitch, adjust tempo, and build rehearsal-ready mixes locally.
+Audio studio for Indian performers to separate stems, create karaoke tracks, shift pitch, adjust tempo, enhance recordings, and build rehearsal-ready mixes locally.
 
 > Phase 1: free local audio tools for Hindustani, Bollywood, and practice-focused music workflows
 
-Surtaal is designed for singers, students, and musicians who want more control over **sur**, **taal**, and arrangement without sending songs to a cloud service. It runs on your machine, keeps the workflow simple, and includes an in-browser workshop for trying ideas quickly.
+Surtaal is designed for singers, students, and musicians who want more control over **sur**, **taal**, and arrangement without sending songs to a cloud service. It runs on your machine, keeps the workflow simple, and now includes Audio Enhancement, a shared session Library, and an in-browser workshop for trying ideas quickly.
 
 ## Why Surtaal
 
 - Built for Indian music practice and stage-prep workflows
 - Runs locally on your Mac with no recurring API cost
 - Lets you preview uploads, process in the background, and keep working
-- Includes a simple workshop for layering tracks and exporting mixes
+- Includes Audio Enhancement for cleanup and effects
+- Includes a shared session Library for reusing outputs across tools
+- Includes a workshop for layering tracks, saving projects, and exporting mixes
 
 ## What You Can Do
 
@@ -21,7 +23,9 @@ Surtaal is designed for singers, students, and musicians who want more control o
 | **Vocal Remover** | Generate karaoke-style backing tracks from full songs |
 | **Pitch Shift** | Change key without changing tempo |
 | **BPM & Tempo** | Detect BPM and slow down or speed up tracks for practice |
-| **Audio Workshop** | Load tracks, play selected parts together, trim ideas, and build mixes |
+| **Audio Enhancement** | Clean recordings, remove hum/noise, shape frequency ranges, and add effects to selected regions |
+| **Library** | Reuse current-session outputs across tools and Workshop without re-uploading from disk |
+| **Audio Workshop** | Load tracks, save or load Workshop projects, arrange clips, and build mixes |
 | **Medley Builder** | Stitch multiple songs with crossfades |
 | **Trim & Fade** | Cut clips, add fades, and export polished sections |
 
@@ -191,13 +195,13 @@ Surtaal is a local two-process app:
 
 ### Frontend
 
-- `frontend/src/App.jsx` is the shell for navigation and shared UI state
+- `frontend/src/App.jsx` is the shell for navigation, shared UI state, and the session library
 - Tool views stay mounted when hidden, so switching tabs does not wipe form/results state
 - `frontend/src/useJob.js` is the shared async client for long-running jobs:
   - submit a request
   - poll `/job/{job_id}`
   - expose `status`, `progress`, `results`, and download URLs
-- Standard tools like stem separation, vocal removal, pitch shift, and tempo change are thin React views over backend endpoints
+- Standard tools like stem separation, vocal removal, pitch shift, tempo change, and audio enhancement are thin React views over backend endpoints
 - `frontend/src/components/Workshop.jsx` is a clip-based mini-DAW that keeps editing state in React and uses:
   - `mixer.js` for Web Audio playback, mute/solo, seek, and transport
   - `waveform.js` for waveform and ruler rendering

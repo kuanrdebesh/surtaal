@@ -534,7 +534,7 @@
         <h1>How to use Surtaal without getting stuck.</h1>
         <p>
           This page walks through the app from first launch to advanced editing, with practical notes for stem extraction,
-          karaoke creation, pitch changes, tempo work, and the Audio Workshop.
+          karaoke creation, pitch changes, tempo work, audio enhancement, the shared library, and the Audio Workshop.
         </p>
         <div class="hero-actions">
           <a class="button primary" href="#quick-start">Start Here</a>
@@ -549,6 +549,8 @@
           <a href="#workflow">Recommended Workflow</a>
           <a href="#tools">Tool-by-Tool Guide</a>
           <a href="#stems">Stem Separator Tips</a>
+          <a href="#enhancement">Audio Enhancement</a>
+          <a href="#library">Saved Library</a>
           <a href="#workshop">Audio Workshop</a>
           <a href="#troubleshooting">Troubleshooting</a>
           <a href="#shortcuts">Good Habits</a>
@@ -568,7 +570,7 @@
               </div>
               <div class="step">
                 <strong>2. Pick a tool from the left menu</strong>
-                Stem Separator, Vocal Remover, Pitch Shift, BPM &amp; Tempo, or Audio Workshop.
+                Stem Separator, Vocal Remover, Pitch Shift, BPM &amp; Tempo, Audio Enhancement, or Audio Workshop.
               </div>
               <div class="step">
                 <strong>3. Upload a file and use the preview bar</strong>
@@ -601,12 +603,20 @@
                 <strong>For custom live arrangements</strong>
                 Extract only the stems you need, add them to the Workshop, then trim, mute, align, and export.
               </div>
+              <div class="check">
+                <strong>For cleanup and polish</strong>
+                Use <code>Audio Enhancement</code> when you want denoise, hum removal, frequency control, or musical effects on only part of a track.
+              </div>
+              <div class="check">
+                <strong>For reusing results across tools</strong>
+                Save good outputs to the <code>Library</code>, then reopen them later in another section without re-uploading from disk.
+              </div>
             </div>
           </section>
 
           <section class="content-card">
             <div class="eyebrow">Visual Tour</div>
-            <h2>Two real screenshots from the app.</h2>
+            <h2>Four real screenshots from the app.</h2>
             <div class="visual-grid">
               <article class="visual">
                 <h3>Stem Separator</h3>
@@ -634,54 +644,40 @@
               </article>
 
               <article class="visual">
-                <h3>Audio Workshop</h3>
-                <p>The Workshop has two important states: the empty launch view, and the loaded arrangement view where checked tracks drive the main Play button, the left panel can be resized, and track rows can be made taller or shorter together.</p>
+                <h3>Audio Enhancement</h3>
+                <p>Use this screen to clean, shape, and effect only the part of a recording you choose, with input and output stacked for easy comparison.</p>
                 <div class="shot-stack">
                   <div>
                     <div class="shot-frame">
-                      <img src="help-assets/workshop-empty.png" alt="Empty Audio Workshop screen in Surtaal" />
-                      <span class="marker" style="left: 3.8%; top: 3.2%;">1</span>
-                      <span class="marker" style="left: 53%; top: 60%;">2</span>
-                      <span class="marker" style="left: 59%; top: 70%;">3</span>
+                      <img src="help-assets/audio-enhancement.png" alt="Audio Enhancement screen in Surtaal" />
                     </div>
-                    <div class="shot-caption">Empty state: start here when you want to assemble stems or build a medley from scratch. The first loaded track auto-fits to the available width.</div>
+                    <div class="shot-caption">Enhance mode keeps the top strip focused on upload and mode selection while the left panel controls the target region and cleanup options.</div>
                   </div>
                   <div>
                     <div class="shot-frame">
-                      <img src="help-assets/workshop-loaded.png" alt="Loaded Audio Workshop screen in Surtaal with two tracks" />
-                      <span class="marker" style="left: 3.8%; top: 3.2%;">4</span>
-                      <span class="marker" style="left: 1.7%; top: 16%;">5</span>
-                      <span class="marker" style="left: 38%; top: 34%;">6</span>
+                      <img src="help-assets/audio-enhancement-effect.png" alt="Audio Enhancement effect mode with dropdown in Surtaal" />
                     </div>
-                    <div class="shot-caption">Loaded state: checked tracks are the ones the main Play button will play together, while later track additions keep your current zoom.</div>
+                    <div class="shot-caption">Effect mode adds the grouped dropdown so you can choose one effect family at a time, then tune only that effect’s controls in the left panel.</div>
                   </div>
                 </div>
-                <div class="legend-grid">
-                  <div class="legend">
-                    <strong>1. Main transport</strong>
-                    The single Play button is the transport. You do not need a separate "play selected" control.
-                  </div>
-                  <div class="legend">
-                    <strong>2. Empty canvas</strong>
-                    This center area becomes your timeline once you add files or send stems here.
-                  </div>
-                  <div class="legend">
-                    <strong>3. Add Tracks entry point</strong>
-                    Use this footer button when you want to load files directly into the Workshop without scrolling through the track list.
-                  </div>
-                  <div class="legend">
-                    <strong>4. Play respects checked tracks</strong>
-                    In the loaded example, Play follows the checked track list by default.
-                  </div>
-                  <div class="legend">
-                    <strong>5. Track checkboxes</strong>
-                    These checkboxes decide which tracks are included when you press Play. Loaded tracks start checked by default.
-                  </div>
-                  <div class="legend">
-                    <strong>6. Timeline and clips</strong>
-                    Once tracks are loaded, you can align them, trim them, adjust fades, resize the left panel, adjust the shared row height, and then export the mix.
-                  </div>
+              </article>
+
+              <article class="visual">
+                <h3>Saved Library</h3>
+                <p>The shared Library keeps the current session’s useful outputs in one place, so you can reopen them in another tool or delete them when they are no longer needed.</p>
+                <div class="shot-frame">
+                  <img src="help-assets/library-modal.png" alt="Saved Library modal in Surtaal" />
                 </div>
+                <div class="shot-caption">Click any item row to load it, or use rename and delete actions directly inside the modal.</div>
+              </article>
+
+              <article class="visual">
+                <h3>Audio Workshop</h3>
+                <p>The current Workshop layout keeps project actions on top, track controls on the left, the timeline on the right, and export plus playback review along the bottom.</p>
+                <div class="shot-frame">
+                  <img src="help-assets/workshop-current.png" alt="Updated Audio Workshop screen in Surtaal" />
+                </div>
+                <div class="shot-caption">Use <code>Save Project</code> and <code>Load Project</code> for session files, <code>Add Tracks</code> for audio sources, and the bottom export bar for rendered audio output.</div>
               </article>
             </div>
           </section>
@@ -722,9 +718,26 @@
                 </ul>
               </article>
               <article class="tool">
+                <h3>Audio Enhancement</h3>
+                <ul>
+                  <li>Use <code>Enhance</code> mode for cleanup work such as denoise, dehum, filtering, and normalization.</li>
+                  <li>Use <code>Effect</code> mode for creative or polish effects like reverb, delay, chorus, EQ lift, compression, limiter, stereo widen, tremolo, phaser, flanger, saturation, and reverse reverb.</li>
+                  <li>Select the time region first, then compare input and output players one above the other.</li>
+                </ul>
+              </article>
+              <article class="tool">
+                <h3>Saved Library</h3>
+                <ul>
+                  <li>Save useful results to the current session library instead of re-downloading or re-uploading immediately.</li>
+                  <li>Open the header <code>Library</code> button to inspect saved items, rename them, or delete them.</li>
+                  <li>Use <code>From Library</code> across tools and Workshop to reload previous outputs quickly.</li>
+                </ul>
+              </article>
+              <article class="tool">
                 <h3>Audio Workshop</h3>
                 <ul>
                   <li>Add stems or processed files to tracks.</li>
+                  <li>Use <code>Save Project</code> and <code>Load Project</code> for session files; use the bottom export bar for rendered audio.</li>
                   <li>Checked tracks are the ones the main <code>Play</code> button will play.</li>
                   <li>Resize the left track-details panel horizontally, and use the shared <code>Height</code> control to resize all track rows together.</li>
                   <li>The left panel follows the same vertical scroll as the waveform area, so the two sides stay aligned.</li>
@@ -772,11 +785,36 @@
             </div>
           </section>
 
+          <section class="content-card" id="enhancement">
+            <div class="eyebrow">Audio Enhancement</div>
+            <h2>Clean, shape, or effect only the section you choose.</h2>
+            <ul>
+              <li>Use the top selector to switch between <code>Enhance</code> and <code>Effect</code>.</li>
+              <li>In <code>Enhance</code> mode, start with presets, then adjust denoise, hum reduction, frequency removal, and normalize controls.</li>
+              <li>In <code>Effect</code> mode, choose one effect from the dropdown, then tune only that effect’s controls in the left panel.</li>
+              <li>The input and output waveforms stay stacked on the right, with players directly below each waveform.</li>
+              <li>Use <code>Waveform</code> or <code>Spectrum</code> view on the input card when you want frequency-aware targeting.</li>
+              <li>Save a good result to the Library if you want to continue with it in another tool later.</li>
+            </ul>
+          </section>
+
+          <section class="content-card" id="library">
+            <div class="eyebrow">Saved Library</div>
+            <h2>Keep the best outputs in one reusable session shelf.</h2>
+            <ul>
+              <li><code>Save to Library</code> keeps a live session copy of useful outputs without forcing you to download and re-import immediately.</li>
+              <li>Click the header <code>Library</code> button to review saved items, rename them, or delete them.</li>
+              <li>Clicking a saved row loads that item directly in picker mode, so you do not have to hit a separate <code>Use</code> button.</li>
+              <li>The library is session-scoped right now, so restart the app only after downloading anything you want to keep permanently.</li>
+            </ul>
+          </section>
+
           <section class="content-card" id="workshop">
             <div class="eyebrow">Audio Workshop</div>
             <h2>Use the Workshop as your arranging table.</h2>
             <ul>
               <li>Add stems from the separator, or add normal audio files directly.</li>
+              <li>Use <code>Add Tracks</code> for audio sources from disk or the Library. Use <code>Save Project</code> and <code>Load Project</code> for Workshop session files.</li>
               <li>The first real track load auto-fits the timeline. Later track additions keep your current zoom.</li>
               <li>Each loaded track is checked for playback by default.</li>
               <li>If any track checkboxes are checked, the main <code>Play</code> button plays only those checked tracks.</li>

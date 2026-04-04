@@ -49,9 +49,15 @@ function initialTheme() {
   return stored === "light" || stored === "dark" ? stored : "dark";
 }
 
+function initialSidebarCollapsed() {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem("surtaal-sidebar-collapsed") === "true";
+}
+
 export default function App() {
   const [active, setActive] = useState(initialToolFromUrl);
   const [theme, setTheme] = useState(initialTheme);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
   const [libraryItems, setLibraryItems] = useState([]);
 
   // Workshop tracks lifted to App level — survive tab switches
@@ -78,6 +84,10 @@ export default function App() {
     document.documentElement.style.colorScheme = theme;
     window.localStorage.setItem("surtaal-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    window.localStorage.setItem("surtaal-sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     const onJob = (event) => {
@@ -187,11 +197,21 @@ export default function App() {
   const helpUrl = "how-to-use.html";
 
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <header className="header">
         <div className="logo-block">
-            <img className="logo-mark" src={LOGO_SRC} alt="SurTaal logo" />
-            <div>
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed((prev) => !prev)}
+            aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            aria-pressed={sidebarCollapsed}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            ☰
+          </button>
+          <img className="logo-mark" src={LOGO_SRC} alt="SurTaal logo" />
+          <div>
             <h1 className="logo-text">SurTaal</h1>
             <p className="logo-sub">Audio Studio for Indian Performers</p>
           </div>
@@ -231,6 +251,9 @@ export default function App() {
             key={t.id}
             className={`nav-item ${active === t.id ? "active" : ""}`}
             onClick={() => setActive(t.id)}
+            aria-label={t.label}
+            title={sidebarCollapsed ? t.label : undefined}
+            data-tooltip={t.label}
           >
             <span className="nav-icon">{t.icon}</span>
             <div className="nav-label">
