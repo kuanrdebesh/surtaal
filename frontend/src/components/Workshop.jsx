@@ -640,7 +640,7 @@ function ExportPanel({ tracks, onSaveToLibrary }) {
             <audio controls src={`${API_BASE}/download/${result.filename}`} style={{ height:26, flex:1, minWidth:140 }}/>
             <SaveToLibraryButton filename={result.filename} displayName={result.filename} onSaveToLibrary={onSaveToLibrary} style={{ fontSize:10, padding:'4px 10px' }}/>
             <a className='download-btn' href={`${API_BASE}/download/${result.filename}`}
-              download={result.filename} style={{ fontSize:10, padding:'4px 10px' }}>↓ Save</a>
+              download={result.filename} style={{ fontSize:10, padding:'4px 10px' }}>↓ Download Audio</a>
           </>
         )}
         {status==='err'&&<span style={{ color:'var(--error)', fontSize:11 }}>Export failed.</span>}
@@ -670,6 +670,7 @@ export default function Workshop({
   const [playSelectedIds, setPlaySelectedIds] = useState([]);
   const [leftPanelWidth, setLeftPanelWidth] = useState(getInitialLeftWidth);
   const [rowHeight, setRowHeight] = useState(getInitialRowHeight);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Spacebar play/pause
   useEffect(() => {
@@ -707,6 +708,7 @@ export default function Workshop({
   const importRef   = useRef(null);
   const timelineWrapRef = useRef(null);
   const resizingLeftPanelRef = useRef(false);
+  const addMenuRef = useRef(null);
 
   useEffect(()=>{ zoomRef.current=zoom; },[zoom]);
   useEffect(()=>{ toolModeRef.current=toolMode; },[toolMode]);
@@ -741,6 +743,17 @@ export default function Workshop({
       window.removeEventListener('mouseup', stopResize);
     };
   }, []);
+
+  useEffect(() => {
+    const onPointerDown = (e) => {
+      if (!showAddMenu) return;
+      if (addMenuRef.current && !addMenuRef.current.contains(e.target)) {
+        setShowAddMenu(false);
+      }
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    return () => window.removeEventListener('mousedown', onPointerDown);
+  }, [showAddMenu]);
 
   // Canvas sizing via ResizeObserver
   const sizeCanvas = (canvas, h) => {
@@ -1328,10 +1341,10 @@ export default function Workshop({
         <div style={{ display:'flex', gap:4, marginLeft:'auto' }}>
           <button className='btn-ghost' onClick={saveProject} disabled={!tracks.length}
             title='Save project settings to .surtaal file'
-            style={{ padding:'4px 9px', fontSize:10 }}>💾 Save</button>
+            style={{ padding:'4px 9px', fontSize:10 }}>💾 Save Project</button>
           <button className='btn-ghost' onClick={()=>projRef.current?.click()}
             title='Load a previously saved .surtaal project'
-            style={{ padding:'4px 9px', fontSize:10 }}>📂 Load</button>
+            style={{ padding:'4px 9px', fontSize:10 }}>📂 Load Project</button>
           <input ref={projRef} type='file' accept='.surtaal,application/json'
             style={{ display:'none' }} onChange={loadProject}/>
           <button className='btn-ghost'
@@ -1351,15 +1364,53 @@ export default function Workshop({
               zoomRef.current = fitZoom; setZoom(fitZoom);
               scrollRef.current = 0; el.scrollLeft = 0;
             }}>⊡ Fit</button>
-          <button className='btn-ghost' onClick={()=>fileRef.current?.click()}
-            title='Add audio tracks (MP3, WAV, FLAC)'
-            style={{ padding:'4px 9px', fontSize:10 }}>+ Add</button>
-          <LibraryPickerButton
-            onPickFile={(file) => addFiles([file])}
-            label="Library"
-            libraryItems={libraryItems}
-            style={{ padding:'4px 9px', fontSize:10 }}
-          />
+          <div ref={addMenuRef} style={{ position:'relative' }}>
+            <button
+              className='btn-ghost'
+              onClick={() => setShowAddMenu((v) => !v)}
+              title='Add audio tracks from disk or library'
+              style={{ padding:'4px 9px', fontSize:10 }}
+            >
+              + Add Tracks
+            </button>
+            {showAddMenu && (
+              <div style={{
+                position:'absolute',
+                top:'calc(100% + 6px)',
+                right:0,
+                minWidth:170,
+                padding:8,
+                borderRadius:10,
+                border:'1px solid var(--border)',
+                background:'var(--bg2)',
+                boxShadow:'var(--shadow-lg)',
+                display:'grid',
+                gap:6,
+                zIndex:20,
+              }}>
+                <button
+                  className='btn-ghost'
+                  onClick={() => {
+                    setShowAddMenu(false);
+                    fileRef.current?.click();
+                  }}
+                  style={{ padding:'6px 10px', fontSize:11, textAlign:'left', width:'100%' }}
+                >
+                  From Disk
+                </button>
+                <LibraryPickerButton
+                  onPickFile={(file) => {
+                    setShowAddMenu(false);
+                    addFiles([file]);
+                  }}
+                  label="From Library"
+                  className="btn-ghost"
+                  libraryItems={libraryItems}
+                  style={{ padding:'6px 10px', fontSize:11, textAlign:'left', width:'100%' }}
+                />
+              </div>
+            )}
+          </div>
           <button className='btn-ghost' onClick={clearAllTracks} disabled={!tracks.length}
             title='Remove all tracks from the workshop'
             style={{ padding:'4px 9px', fontSize:10 }}>Clear All</button>
