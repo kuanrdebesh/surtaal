@@ -198,10 +198,11 @@
       <strong>Executive summary.</strong> Surtaal has been built as a focused, local-first audio utility
       for Indian music practice and stage-prep workflows. The product has deliberately prioritized
       meaningful musician outcomes over platform breadth: users can separate stems, create karaoke tracks,
-      adjust pitch and tempo, assemble rehearsal mixes, and work with an embedded workshop without relying
-      on a cloud service. Recent upgrades, especially the Windows desktop packaging path, are not random
-      technical additions; they are product moves aimed at reducing setup friction, widening distribution,
-      and preserving the local-first value proposition while making the product easier to adopt.
+      adjust pitch and tempo, enhance audio quality, reuse assets through a session Library, assemble rehearsal
+      mixes, and work with an embedded workshop without relying on a cloud service. Recent upgrades, especially
+      the Library, cancellation flows, troubleshooting support, and the Windows desktop packaging path, are not
+      random technical additions; they are product moves aimed at reducing setup friction, widening distribution,
+      preserving the local-first value proposition, and making the product easier to trust and adopt.
     </div>
 
     <h2>1. Product Context</h2>
@@ -209,8 +210,9 @@
       Surtaal exists to solve a practical workflow problem: many singers and musicians need rehearsal-ready
       audio utilities, but the current tooling landscape is fragmented, overly technical, cloud-dependent,
       or not tailored to Indian music practice patterns. Users often need a simple way to remove vocals,
-      slow down tracks for practice, shift key for comfort, prepare medleys, and create usable backing
-      material without learning a full DAW or uploading sensitive audio to an online service.
+      slow down tracks for practice, shift key for comfort, clean up imperfect recordings, prepare medleys,
+      and create usable backing material without learning a full DAW or uploading sensitive audio to an
+      online service.
     </p>
     <p>
       From a product-management perspective, the central promise of Surtaal is clear: make audio preparation
@@ -277,9 +279,19 @@
           <td>Tracks can be adapted to comfortable singing range</td>
         </tr>
         <tr>
+          <td>Audio enhancement</td>
+          <td>Cleanup, polish, noise reduction, hum reduction, filtering, normalization, and effects</td>
+          <td>Users can improve rough recordings and prepare more usable rehearsal or sharing outputs</td>
+        </tr>
+        <tr>
           <td>BPM and tempo</td>
           <td>BPM detection and speed adjustment</td>
           <td>Users can slow down difficult sections or rehearse at a controlled pace</td>
+        </tr>
+        <tr>
+          <td>Shared session Library</td>
+          <td>Save uploads and generated outputs for reuse across tools and Workshop</td>
+          <td>Users can continue working without repeated uploads or losing useful intermediate assets</td>
         </tr>
         <tr>
           <td>Audio Workshop</td>
@@ -298,8 +310,13 @@
         </tr>
         <tr>
           <td>Guided onboarding</td>
-          <td>Live help page plus shareable standalone guide</td>
-          <td>Reduces dependence on verbal instruction and makes the product easier to adopt</td>
+          <td>Live help page, shareable standalone guide, and dedicated troubleshooting support</td>
+          <td>Reduces dependence on verbal instruction and makes the product easier to adopt and recover when issues happen</td>
+        </tr>
+        <tr>
+          <td>Job control and cancellation</td>
+          <td>Background progress visibility plus user-triggered cancellation for long-running operations</td>
+          <td>Users retain control instead of feeling trapped in slow or accidental processing runs</td>
         </tr>
         <tr>
           <td>Desktop packaging starter</td>
@@ -336,6 +353,16 @@
           <td>They increase repeat usage and broaden the product beyond one novelty feature</td>
         </tr>
         <tr>
+          <td>Audio enhancement</td>
+          <td>Users often need to improve the quality of imperfect source material, not only transform it</td>
+          <td>This expands Surtaal from a manipulation toolset into a more complete preparation utility</td>
+        </tr>
+        <tr>
+          <td>Shared Library</td>
+          <td>Repeated re-uploading and hunting for intermediate files creates unnecessary user friction</td>
+          <td>This increases workflow continuity and makes separate tools feel like parts of one product</td>
+        </tr>
+        <tr>
           <td>Workshop and export features</td>
           <td>Users need to combine outputs, not just generate them</td>
           <td>This shifts Surtaal from a tool collection into a workflow product</td>
@@ -349,6 +376,11 @@
           <td>Guides and help pages</td>
           <td>Setup and usage friction is a major barrier for non-technical users</td>
           <td>Documentation becomes part of the product, not just a support asset</td>
+        </tr>
+        <tr>
+          <td>Cancellation and troubleshooting</td>
+          <td>Long-running operations and local environments create moments of user uncertainty</td>
+          <td>These features improve trust, perceived safety, and recovery when the happy path breaks</td>
         </tr>
         <tr>
           <td>Windows desktop path</td>
@@ -420,6 +452,34 @@
 
     <div class="decision">
       <div class="tag">Decision</div>
+      <h3>Surtaal expanded from transformation into preparation and polish</h3>
+      <p><strong>Choice.</strong> Add Audio Enhancement rather than limiting the product to separation, pitch, and tempo changes.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Real users do not only want isolated stems or shifted tracks;
+        they also need cleaner, more usable audio. Enhancement features bridge the gap between "it technically works"
+        and "it is ready for practice, rehearsal, or sharing."
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This improves the completeness of the product journey and raises repeat-use value.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>The product now treats reusable outputs as a first-class workflow asset</h3>
+      <p><strong>Choice.</strong> Add a shared session Library for uploads and generated results.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Users frequently move between tools and want to reuse outputs
+        without downloading and re-uploading files manually. A Library reduces friction and makes the product feel coherent.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> This is a workflow-retention decision. It makes Surtaal feel less like isolated utilities
+        and more like one connected product experience.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
       <h3>Long-running work was designed around jobs and progress states</h3>
       <p><strong>Choice.</strong> The product submits processing jobs and surfaces progress instead of blocking the UI.</p>
       <p>
@@ -434,11 +494,24 @@
 
     <div class="decision">
       <div class="tag">Decision</div>
-      <h3>Guided help was treated as a shipped feature</h3>
-      <p><strong>Choice.</strong> Provide a live in-app help page and a shareable standalone guide.</p>
+      <h3>Long-running jobs now include user cancellation, not just progress feedback</h3>
+      <p><strong>Choice.</strong> Let users cancel running operations such as heavy processing jobs.</p>
+      <p>
+        <strong>Why this decision makes sense.</strong> Progress alone informs the user, but cancellation restores control.
+        When a user submits the wrong file, changes their mind, or hits a slow path, they should not feel locked into waiting.
+      </p>
+      <p>
+        <strong>PM rationale.</strong> Cancellation improves trust, perceived quality, and emotional safety during expensive operations.
+      </p>
+    </div>
+
+    <div class="decision">
+      <div class="tag">Decision</div>
+      <h3>Guided help and troubleshooting were treated as shipped features</h3>
+      <p><strong>Choice.</strong> Provide a live in-app help page, a shareable standalone guide, and a dedicated troubleshooting path.</p>
       <p>
         <strong>Why this decision makes sense.</strong> Surtaal serves users who may not be comfortable with terminal-first
-        or engineer-style products. Good documentation reduces drop-off, setup dependency, and support burden.
+        or engineer-style products. Good guidance reduces drop-off, setup dependency, support burden, and panic when something fails.
       </p>
       <p>
         <strong>PM rationale.</strong> For an early product, onboarding quality can matter as much as feature count.
@@ -505,13 +578,33 @@
           <td>Improves accessibility for non-technical users and expands addressable audience</td>
         </tr>
         <tr>
+          <td>Audio Enhancement</td>
+          <td>Broadens Surtaal from transformation into cleanup, polish, and creative finishing</td>
+          <td>Increases repeat-use relevance and makes the product valuable in more everyday scenarios</td>
+        </tr>
+        <tr>
+          <td>Shared session Library</td>
+          <td>Lets users move outputs across tools and into Workshop without starting over</td>
+          <td>Strengthens workflow continuity and increases the product's stickiness</td>
+        </tr>
+        <tr>
+          <td>Job cancellation</td>
+          <td>Gives users control during long-running processing</td>
+          <td>Improves trust and reduces the frustration cost of mistakes or slow operations</td>
+        </tr>
+        <tr>
+          <td>Troubleshooting documentation</td>
+          <td>Provides a recovery path when local setup or processing fails</td>
+          <td>Improves adoption quality and lowers support dependency</td>
+        </tr>
+        <tr>
           <td>Shared runtime API configuration</td>
           <td>The same UI can run in browser and desktop contexts</td>
           <td>Protects product optionality and lowers maintenance cost</td>
         </tr>
         <tr>
           <td>Runtime-managed folders</td>
-          <td>User files and model assets can live outside a dev-oriented repo layout</td>
+          <td>User files, Library assets, outputs, and model artifacts can live outside a dev-oriented repo layout</td>
           <td>Necessary for a polished consumer install experience</td>
         </tr>
         <tr>
@@ -532,6 +625,7 @@
       <li>It does not try to compete with professional DAWs on depth of editing.</li>
       <li>It currently prioritizes local single-user workflows over multi-user persistence.</li>
       <li>It treats Windows packaging as a productization path in progress, not a fully solved endpoint.</li>
+      <li>It uses a lightweight session Library rather than a fully-fledged project/database model.</li>
       <li>It accepts some heavier runtime footprint in exchange for high-value audio capabilities such as Demucs.</li>
     </ul>
     <p>
@@ -544,7 +638,8 @@
       <li>Surtaal has moved beyond a single-purpose utility and become a compact workflow product.</li>
       <li>It has established a differentiated local-first positioning with clear user relevance.</li>
       <li>It has created a platform base that can now expand into easier desktop distribution.</li>
-      <li>It has added onboarding and usability layers that make the product more approachable.</li>
+      <li>It has added workflow continuity through the shared Library and Workshop handoff model.</li>
+      <li>It has added onboarding, cancellation, and troubleshooting layers that make the product more approachable and trustworthy.</li>
       <li>It has preserved future optionality for desktop and web delivery without changing the core value story.</li>
     </ol>
 
@@ -552,9 +647,9 @@
     <p>
       The strongest stakeholder narrative is not "we added many technical upgrades." The stronger narrative is:
       Surtaal has been steadily productized. We first built the core musician workflows that create immediate
-      value, then we added workflow cohesion, then we reduced adoption friction through guidance and packaging
-      work, and now we are preparing the product for wider desktop distribution without abandoning its local-first
-      identity.
+      value, then we added workflow cohesion through Workshop and Library reuse, then we reduced adoption friction
+      through guidance, cancellation, troubleshooting, and packaging work, and now we are preparing the product
+      for wider desktop distribution without abandoning its local-first identity.
     </p>
     <p>
       That story is coherent because each decision follows the same logic: help users get useful musical outcomes
@@ -585,6 +680,11 @@
           <td>Clear positioning and onboarding assets</td>
           <td>The product already has a strong story that should be communicated consistently</td>
           <td>Better conversion from curiosity to successful first use</td>
+        </tr>
+        <tr>
+          <td>Deepen Library and session continuity</td>
+          <td>The product now has the beginnings of reusable workflow memory</td>
+          <td>Higher retention and smoother multi-step usage across tools</td>
         </tr>
         <tr>
           <td>Selective workflow depth in Workshop</td>

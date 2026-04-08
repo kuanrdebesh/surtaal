@@ -200,6 +200,12 @@ What to do:
 
 ## Audio Workshop
 
+### I made a mistake while editing clips
+
+What to do:
+- use `Ctrl/Cmd + Z` to Undo and `Ctrl/Cmd + Shift + Z` to Redo.
+- or click the Undo/Redo buttons directly in the top action bar of the Workshop.
+
 ### Add Tracks vs Load Project feels confusing
 
 What the difference is:

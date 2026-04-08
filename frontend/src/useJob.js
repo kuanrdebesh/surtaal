@@ -44,7 +44,29 @@ export function useJob(options = {}) {
           setCanceling(false);
           setStatus("done");
           setProgress(100);
-          setResults(data.files || []);
+          let rawFiles = data.files || data.file;
+          let safeFiles = [];
+
+          if (rawFiles) {
+            if (typeof rawFiles === "string") {
+              // Backend sent a single string (like a zip filename)
+              safeFiles = [{ filename: rawFiles, label: "extracted_audio" }];
+            } else if (Array.isArray(rawFiles)) {
+              // Ensure all items are objects
+              safeFiles = rawFiles.filter(Boolean).map(item => 
+                typeof item === "string" ? { filename: item, label: item } : item
+              );
+            } else if (typeof rawFiles === "object") {
+              // Backend sent a dictionary { "vocals": "vocals.mp3" }
+              safeFiles = Object.entries(rawFiles).map(([k, v]) => {
+                if (typeof v === "string") return { label: k, filename: v };
+                if (typeof v === "object" && v !== null) return { label: k, ...(v.filename ? v : { filename: v.file || k }) };
+                return { label: k, value: v };
+              });
+            }
+          }
+
+          setResults(safeFiles);
         } else if (data.status === "cancelled") {
           clearInterval(pollRef.current);
           setCanceling(false);

@@ -7,7 +7,7 @@ class Mixer {
   constructor() {
     this.ctx     = null;
     this.master  = null;
-    this.tracks  = new Map(); // id -> {buffer, gainNode, source, vol, muted, solo, offset}
+    this.tracks  = new Map(); // id -> {clips: [], gainNode, sources: [], vol, muted, solo}
     this._t0     = 0;
     this._off    = 0;
     this.playing = false;
@@ -43,12 +43,11 @@ class Mixer {
       this.master.connect(this.ctx.destination);
       // Reconnect all gain nodes to new context
       this.tracks.forEach((t, id) => {
-        if (!t.buffer) return;
         const gain = this.ctx.createGain();
         gain.connect(this.master);
         gain.gain.value = t.muted ? 0 : t.vol;
         t.gainNode = gain;
-        t.source   = null;
+        t.sources  = [];
       });
     }
 
@@ -84,13 +83,12 @@ class Mixer {
     gainNode.gain.value = muted ? 0 : vol;
 
     this.tracks.set(id, {
-      buffer: buf,
+      clips:    existing.clips || [],
       gainNode,
-      source: null,
+      sources:  existing.sources || [],
       vol,
       muted,
-      solo:   existing.solo   ?? false,
-      offset: existing.offset ?? 0,
+      solo:     existing.solo ?? false,
     });
 
     console.log(`[Mixer] Loaded track ${id}, duration: ${buf.duration.toFixed(1)}s`);
@@ -100,9 +98,41 @@ class Mixer {
   remove(id) {
     const t = this.tracks.get(id);
     if (!t) return;
-    try { t.source?.stop(); } catch {}
+    try { t.sources?.forEach(s => s.stop()); } catch {}
     try { t.gainNode?.disconnect(); } catch {}
     this.tracks.delete(id);
+  }
+
+  setClips(id, clips) {
+    let t = this.tracks.get(id);
+    if (!t) {
+      // Auto-build gain node when context is available (e.g. undo restores a deleted track)
+      let gainNode = null;
+      if (this.ctx && this.ctx.state !== 'closed') {
+        gainNode = this.ctx.createGain();
+        gainNode.connect(this.master);
+        gainNode.gain.value = 1;
+      }
+      t = { clips, gainNode, sources: [], vol: 1, muted: false, solo: false };
+      this.tracks.set(id, t);
+    } else {
+      t.clips = clips;
+      // Rebuild gain node if missing (can happen after undo resurrects a track)
+      if (!t.gainNode && this.ctx && this.ctx.state !== 'closed') {
+        t.gainNode = this.ctx.createGain();
+        t.gainNode.connect(this.master);
+        this._recalcGains();
+      }
+    }
+    
+    // Live update if we are playing
+    if (this.playing) {
+      if (t.sources) {
+        t.sources.forEach(s => { try { s.stop(); } catch {} });
+      }
+      t.sources = [];
+      this._scheduleTrack(id, this.currentTime);
+    }
   }
 
   // ── Gain control ──────────────────────────────────────────────────────────
@@ -119,7 +149,6 @@ class Mixer {
   setVol(id, v)    { const t = this.tracks.get(id); if (t) t.vol    = v; this._recalcGains(); }
   setMute(id, v)   { const t = this.tracks.get(id); if (t) t.muted  = v; this._recalcGains(); }
   setSolo(id, v)   { const t = this.tracks.get(id); if (t) t.solo   = v; this._recalcGains(); }
-  setOffset(id, v) { const t = this.tracks.get(id); if (t) t.offset = v; }
   setMasterVol(v)  { if (this.master) this.master.gain.value = v; }
 
   // ── Transport ─────────────────────────────────────────────────────────────
@@ -128,8 +157,10 @@ class Mixer {
 
   _stopSources() {
     this.tracks.forEach(t => {
-      try { t.source?.stop(); } catch {}
-      t.source = null;
+      if (t.sources) {
+        t.sources.forEach(s => { try { s.stop(); } catch {} });
+      }
+      t.sources = [];
     });
   }
 
@@ -142,34 +173,64 @@ class Mixer {
     this.playing = true;
     const allowedIds = filterIds ? new Set(filterIds) : null;
 
-    const anySolo = [...this.tracks.values()].some(x => x.solo);
     let started = 0;
 
     this.tracks.forEach((t, id) => {
       if (allowedIds && !allowedIds.has(id)) return;
-      if (!t.buffer) return;
 
-      // Ensure gain node belongs to current context
-      if (!t.gainNode || t.gainNode.context !== ctx) {
-        t.gainNode = ctx.createGain();
-        t.gainNode.connect(this.master);
-      }
-
-      const src  = ctx.createBufferSource();
-      src.buffer = t.buffer;
-      src.connect(t.gainNode);
-
-      const trackOff = t.offset ?? 0;
-      const delay    = Math.max(0, trackOff - off);
-      const srcStart = Math.max(0, off - trackOff);
-
-      src.start(ctx.currentTime + delay, srcStart);
-      t.source = src;
-      started++;
+      this._scheduleTrack(id, off);
     });
 
     this._recalcGains();
-    console.log(`[Mixer] play() called, offset=${off.toFixed(2)}, tracks started=${started}, ctx state=${ctx.state}`);
+    console.log(`[Mixer] play() called, offset=${off.toFixed(2)}, ctx state=${ctx.state}`);
+  }
+
+  _scheduleTrack(id, off) {
+    const t = this.tracks.get(id);
+    if (!t) return;
+    const ctx = this.ctx;
+    
+    // Ensure gain node belongs to current context
+    if (!t.gainNode || t.gainNode.context !== ctx) {
+      t.gainNode = ctx.createGain();
+      t.gainNode.connect(this.master);
+      this._recalcGains(); // Apply correct vol/muted/solo
+    }
+
+    t.sources = [];
+    if (!t.clips) return;
+
+    t.clips.forEach((clip) => {
+      if (!clip.buffer) return;
+
+      const clipStartLine = clip.startOffset || 0;
+      const playDuration = (clip.trimEnd || clip.duration) - (clip.trimStart || 0);
+      const clipEndLine = clipStartLine + playDuration;
+
+      // Skip clips entirely before the playhead
+      if (off >= clipEndLine) return;
+
+      const src = ctx.createBufferSource();
+      src.buffer = clip.buffer;
+      src.connect(t.gainNode);
+
+      let delay = 0;
+      let bufOffset = clip.trimStart || 0;
+      let playLen = playDuration;
+
+        if (off < clipStartLine) {
+          delay = clipStartLine - off;
+        } else {
+          const diff = off - clipStartLine;
+          bufOffset += diff;
+          playLen -= diff;
+        }
+
+        // Fades are not applied to nodes yet (will need gain envelopes later if requested)
+        src.start(ctx.currentTime + delay, bufOffset);
+        src.stop(ctx.currentTime + delay + Math.max(0.001, playLen));
+        t.sources.push(src);
+      });
   }
 
   play(seekTo) {
@@ -214,7 +275,7 @@ class Mixer {
     console.log('currentTime:', this.currentTime.toFixed(2));
     console.log('tracks:', this.tracks.size);
     this.tracks.forEach((t, id) => {
-      console.log(`  track ${id}: buffer=${!!t.buffer}, gainNode=${!!t.gainNode}, vol=${t.vol}, muted=${t.muted}`);
+      console.log(`  track ${id}: clips=${t.clips?.length || 0}, gainNode=${!!t.gainNode}, vol=${t.vol}, muted=${t.muted}`);
     });
     console.log('==================');
   }
@@ -222,17 +283,15 @@ class Mixer {
 
 // ── Singleton ─────────────────────────────────────────────────────────────────
 // We store on window so Vite hot-reloads don't lose the loaded audio buffers.
-// On each module load we check if the existing instance's AudioContext is still
-// valid. If the context was closed by the browser, we reset so a fresh one
-// gets created on next user gesture.
-
 if (window._surtaal_mixer) {
   const existing = window._surtaal_mixer;
   if (existing.ctx?.state === 'closed') {
     console.log('[Mixer] Existing context was closed, resetting mixer');
     window._surtaal_mixer = new Mixer();
   } else {
-    console.log('[Mixer] Reusing existing mixer, ctx state:', existing.ctx?.state ?? 'none');
+    // Hot-swap methods during Vite HMR so the prototype reflects local edits
+    Object.setPrototypeOf(existing, Mixer.prototype);
+    console.log('[Mixer] Reusing existing mixer, prototype updated. ctx state:', existing.ctx?.state ?? 'none');
   }
 } else {
   window._surtaal_mixer = new Mixer();

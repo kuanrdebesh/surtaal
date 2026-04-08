@@ -54,7 +54,10 @@ const QUALITY_OPTIONS = [
 
 const displayStemLabel = (value) => STEM_META[value]?.label || value.replace(/_/g, " ");
 
-const normalizeResultKey = (label) => label.trim().toLowerCase().replace(/\s+/g, "_");
+const normalizeResultKey = (label) => {
+  if (!label) return "";
+  return String(label).trim().toLowerCase().replace(/\s+/g, "_");
+};
 
 export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToLibrary }) {
   const [file, setFile] = useState(null);
@@ -83,8 +86,8 @@ export default function StemSeparator({ onAddToWorkshop, libraryItems, onSaveToL
     setCollectedResults((prev) => {
       const next = [...prev];
       results.forEach((result) => {
-        const key = normalizeResultKey(result.label);
-        const index = next.findIndex((item) => normalizeResultKey(item.label) === key);
+        const key = normalizeResultKey(result.label || result.filename || "unknown");
+        const index = next.findIndex((item) => normalizeResultKey(item.label || item.filename || "unknown") === key);
         if (index >= 0) next[index] = result;
         else next.push(result);
       });

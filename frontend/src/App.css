@@ -1,63 +1,242 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono&display=swap');
 
 :root {
-  --bg:        #0d0d11;
-  --bg2:       #14141a;
-  --bg3:       #1c1c25;
-  --border:    #2a2a38;
-  --accent:    #c97d3a;        /* warm saffron gold */
-  --accent2:   #8b4ea3;        /* deep raga purple */
-  --text:      #e8e4dc;
-  --muted:     #6b6880;
+  /* Studio Dark — Pro Tools / Avid style charcoal with cyan metering */
+  --accent-rgb:  0,188,212;
+  --accent2-rgb: 124,106,245;
+  --bg:        #13141a;   /* cool near-black base */
+  --bg2:       #1c1a28;   /* indigo-warmed panels — mixer-strip depth */
+  --bg3:       #222038;   /* deeper indigo for active/hover surfaces */
+  --border:    #34324a;
+  --accent:    #00bcd4;        /* meter cyan */
+  --accent2:   #7c6af5;        /* signal violet */
+  --text:      #e0e2ea;
+  --muted:     #737585;
   --success:   #4caf7d;
   --error:     #e05c5c;
   --radius:    12px;
   --nav-w:     240px;
   --nav-collapsed-w: 74px;
   --header-h:  64px;
-  --surface-overlay: rgba(13,13,19,0.96);
-  --surface-glass: rgba(20,20,26,0.92);
-  --canvas-bg: #0d0d11;
-  --canvas-ruler-bg: #12121a;
-  --editbar-bg: #0d0d13;
-  --canvas-grid: rgba(255,255,255,0.05);
-  --canvas-grid-strong: rgba(201,125,58,0.35);
-  --canvas-grid-label: rgba(201,125,58,0.45);
-  --canvas-ruler-tick: #3a3555;
-  --canvas-ruler-text: #5a5470;
-  --canvas-ruler-line: #22203a;
-  --canvas-playhead: #ffffff;
-  --shadow-lg: 0 20px 50px rgba(0,0,0,0.35);
-  --pitch-key-white: #e8e4dc;
-  --pitch-key-white-border: #cccccc;
-  --pitch-key-black: #1a1a22;
-  --pitch-key-black-border: #333333;
+  --surface-overlay: rgba(24,25,30,0.96);
+  --surface-glass: rgba(31,32,40,0.92);
+  --canvas-bg: #18191e;
+  --canvas-ruler-bg: #14151a;
+  --editbar-bg: #14151b;
+  --canvas-grid: rgba(255,255,255,0.04);
+  --canvas-grid-strong: rgba(0,188,212,0.28);
+  --canvas-grid-label: rgba(0,188,212,0.45);
+  --canvas-ruler-tick: #363844;
+  --canvas-ruler-text: #565870;
+  --canvas-ruler-line: #24252e;
+  --canvas-playhead: #00e5ff;
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.4);
+  --pitch-key-white: #e0e2ea;
+  --pitch-key-white-border: #c8cad4;
+  --pitch-key-black: #18191e;
+  --pitch-key-black-border: #363844;
 }
 
 :root[data-theme="light"] {
-  --bg:        #f5efe4;
-  --bg2:       #fffdfa;
-  --bg3:       #f1e7d8;
-  --border:    #d7c8b5;
-  --accent:    #b56b1f;
-  --accent2:   #6a61b9;
-  --text:      #231d18;
-  --muted:     #6f675d;
-  --success:   #2f8a5f;
+  /* Studio Light — Logic Pro / clean bright workspace */
+  --accent-rgb:  0,113,227;
+  --accent2-rgb: 88,86,214;
+  --bg:        #edf0f8;   /* cool blue-white base */
+  --bg2:       #fffdf8;   /* warm cream — panel surfaces feel like paper */
+  --bg3:       #e6e2f4;   /* light lavender — sidebar/elevated areas */
+  --border:    #ccc8e0;
+  --accent:    #0071e3;        /* Apple blue */
+  --accent2:   #5856d6;        /* Apple purple */
+  --text:      #1d1d1f;
+  --muted:     #6e6e73;
+  --success:   #34c759;
+  --error:     #ff3b30;
+  --surface-overlay: rgba(238,240,245,0.97);
+  --surface-glass: rgba(255,255,255,0.93);
+  --canvas-bg: #f5f7fb;
+  --canvas-ruler-bg: #e8eaf0;
+  --editbar-bg: #eef0f6;
+  --canvas-grid: rgba(0,0,0,0.06);
+  --canvas-grid-strong: rgba(0,113,227,0.22);
+  --canvas-grid-label: rgba(0,113,227,0.58);
+  --canvas-ruler-tick: #b0b3c4;
+  --canvas-ruler-text: #7a7d8e;
+  --canvas-ruler-line: #d0d3df;
+  --canvas-playhead: #1d1d1f;
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.12);
+  --pitch-key-white: #ffffff;
+  --pitch-key-white-border: #c8cad6;
+  --pitch-key-black: #3a3a3c;
+  --pitch-key-black-border: #2c2c2e;
+}
+
+:root[data-theme="ocean"] {
+  /* Ableton — Live-style near-black with signature orange clips */
+  --accent-rgb:  255,120,0;
+  --accent2-rgb: 200,230,0;
+  --bg:        #0e0e0e;   /* near-black base */
+  --bg2:       #1a1714;   /* subtle warm brown-black — studio wood desk feel */
+  --bg3:       #221f1a;   /* warm charcoal for panels */
+  --border:    #323028;
+  --accent:    #ff7800;        /* Ableton orange */
+  --accent2:   #c8e600;        /* clip green */
+  --text:      #d4d4d4;
+  --muted:     #656565;
+  --success:   #80c600;
+  --error:     #e05c5c;
+  --surface-overlay: rgba(18,18,18,0.97);
+  --surface-glass: rgba(26,26,26,0.93);
+  --canvas-bg: #121212;
+  --canvas-ruler-bg: #0e0e0e;
+  --editbar-bg: #0e0e0e;
+  --canvas-grid: rgba(255,255,255,0.05);
+  --canvas-grid-strong: rgba(255,120,0,0.32);
+  --canvas-grid-label: rgba(255,120,0,0.52);
+  --canvas-ruler-tick: #2a2a2a;
+  --canvas-ruler-text: #555555;
+  --canvas-ruler-line: #1e1e1e;
+  --canvas-playhead: #ff7800;
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.5);
+  --pitch-key-white: #d4d4d4;
+  --pitch-key-white-border: #aaaaaa;
+  --pitch-key-black: #121212;
+  --pitch-key-black-border: #333333;
+}
+
+:root[data-theme="sunset"] {
+  /* Midnight Session — deep navy with gold master bus glow */
+  --accent-rgb:  245,197,24;
+  --accent2-rgb: 224,112,64;
+  --bg:        #090b16;   /* deep navy base */
+  --bg2:       #100d1e;   /* dark plum panels — adds mystery and depth */
+  --bg3:       #16152a;   /* navy-plum blend for active surfaces */
+  --border:    #28264a;
+  --accent:    #f5c518;        /* gold master */
+  --accent2:   #e07040;        /* warm gain orange */
+  --text:      #dde1f0;
+  --muted:     #5a5e72;
+  --success:   #4caf7d;
+  --error:     #e05c5c;
+  --surface-overlay: rgba(11,13,23,0.97);
+  --surface-glass: rgba(17,20,32,0.93);
+  --canvas-bg: #0b0d17;
+  --canvas-ruler-bg: #090b14;
+  --editbar-bg: #090b14;
+  --canvas-grid: rgba(255,255,255,0.04);
+  --canvas-grid-strong: rgba(245,197,24,0.28);
+  --canvas-grid-label: rgba(245,197,24,0.5);
+  --canvas-ruler-tick: #272d46;
+  --canvas-ruler-text: #464e6a;
+  --canvas-ruler-line: #181d30;
+  --canvas-playhead: #f5c518;
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.5);
+  --pitch-key-white: #dde1f0;
+  --pitch-key-white-border: #b8bdd4;
+  --pitch-key-black: #0b0d17;
+  --pitch-key-black-border: #272d46;
+}
+
+:root[data-theme="forest"] {
+  /* Analog Warm — vintage console with amber VU meters and tape warmth */
+  --accent-rgb:  212,146,30;
+  --accent2-rgb: 160,54,40;
+  --bg:        #171210;   /* dark mahogany base */
+  --bg2:       #1c1c0e;   /* dark olive — aged console baize contrast */
+  --bg3:       #261e14;   /* mahogany-olive blend for panels */
+  --border:    #40321a;
+  --accent:    #d4921e;        /* VU amber */
+  --accent2:   #a03628;        /* peak red */
+  --text:      #e8dcc8;
+  --muted:     #7a6b55;
+  --success:   #5a9a50;
+  --error:     #c04040;
+  --surface-overlay: rgba(26,22,16,0.97);
+  --surface-glass: rgba(34,29,20,0.93);
+  --canvas-bg: #1a1610;
+  --canvas-ruler-bg: #16130d;
+  --editbar-bg: #16130e;
+  --canvas-grid: rgba(255,255,255,0.04);
+  --canvas-grid-strong: rgba(212,146,30,0.32);
+  --canvas-grid-label: rgba(212,146,30,0.52);
+  --canvas-ruler-tick: #443820;
+  --canvas-ruler-text: #6a5840;
+  --canvas-ruler-line: #2a2218;
+  --canvas-playhead: #d4921e;
+  --shadow-lg: 0 20px 50px rgba(0,0,0,0.45);
+  --pitch-key-white: #e8dcc8;
+  --pitch-key-white-border: #c8b898;
+  --pitch-key-black: #1a1610;
+  --pitch-key-black-border: #443820;
+}
+
+:root[data-theme="pearl"] {
+  /* Clean Studio — white/grey/black with steel blue highlights */
+  --accent-rgb:  30,111,217;
+  --accent2-rgb: 91,163,245;
+  --bg:        #ffffff;   /* pure white base */
+  --bg2:       #f3f4f7;   /* cool light grey panels — like studio equipment fascia */
+  --bg3:       #e8eaf0;   /* blue-grey sidebars / active areas */
+  --border:    #d0d2dc;
+  --accent:    #1e6fd9;        /* steel blue — professional meter/indicator blue */
+  --accent2:   #5ba3f5;        /* lighter blue variant for secondary highlights */
+  --text:      #111113;        /* near-black for max readability on white */
+  --muted:     #767688;        /* neutral grey */
+  --success:   #2dba7a;
+  --error:     #e0404a;
+  --radius:    12px;
+  --nav-w:     240px;
+  --nav-collapsed-w: 74px;
+  --header-h:  64px;
+  --surface-overlay: rgba(255,255,255,0.97);
+  --surface-glass: rgba(243,244,247,0.94);
+  --canvas-bg: #ffffff;
+  --canvas-ruler-bg: #f0f1f5;
+  --editbar-bg: #f5f6fa;
+  --canvas-grid: rgba(17,17,19,0.06);
+  --canvas-grid-strong: rgba(30,111,217,0.18);
+  --canvas-grid-label: rgba(30,111,217,0.55);
+  --canvas-ruler-tick: #c8cad8;
+  --canvas-ruler-text: #8890a8;
+  --canvas-ruler-line: #dde0e8;
+  --canvas-playhead: #1e6fd9;
+  --shadow-lg: 0 20px 50px rgba(17,17,19,0.1);
+  --pitch-key-white: #ffffff;
+  --pitch-key-white-border: #d0d2dc;
+  --pitch-key-black: #111113;
+  --pitch-key-black-border: #2a2a30;
+}
+
+:root[data-theme="warm"] {
+  /* Surtaal Classic — original warm parchment, saffron & raga purple */
+  --accent-rgb:  181,107,31;
+  --accent2-rgb: 107,97,185;
+  --bg:        #f6efe4;   /* warm parchment base */
+  --bg2:       #fffdfa;   /* near-white cream surfaces */
+  --bg3:       #f0e5d6;   /* deeper parchment panels — second hue */
+  --border:    #d9c9b6;
+  --accent:    #b56b1f;        /* saffron */
+  --accent2:   #6b61b9;        /* raga purple */
+  --text:      #241d18;
+  --muted:     #70675d;
+  --success:   #3a8d64;
   --error:     #bb4c4c;
-  --surface-overlay: rgba(255,250,244,0.96);
-  --surface-glass: rgba(255,255,255,0.92);
-  --canvas-bg: #fcf8f1;
+  --radius:    12px;
+  --nav-w:     240px;
+  --nav-collapsed-w: 74px;
+  --header-h:  64px;
+  --surface-overlay: rgba(246,239,228,0.97);
+  --surface-glass: rgba(255,253,250,0.93);
+  --canvas-bg: #f6efe4;
   --canvas-ruler-bg: #efe4d7;
   --editbar-bg: #f4ebdf;
-  --canvas-grid: rgba(35,29,24,0.08);
-  --canvas-grid-strong: rgba(181,107,31,0.3);
-  --canvas-grid-label: rgba(181,107,31,0.65);
+  --canvas-grid: rgba(36,29,24,0.08);
+  --canvas-grid-strong: rgba(181,107,31,0.28);
+  --canvas-grid-label: rgba(181,107,31,0.62);
   --canvas-ruler-tick: #baa48a;
   --canvas-ruler-text: #7a6b59;
   --canvas-ruler-line: #cfbfae;
-  --canvas-playhead: #231d18;
-  --shadow-lg: 0 20px 50px rgba(88,56,24,0.16);
+  --canvas-playhead: #241d18;
+  --shadow-lg: 0 20px 50px rgba(98,65,30,0.16);
   --pitch-key-white: #fffdf9;
   --pitch-key-white-border: #d6c6b3;
   --pitch-key-black: #5f574f;
@@ -120,8 +299,8 @@ body {
 }
 
 .help-button:hover {
-  background: linear-gradient(135deg, rgba(201,125,58,0.18), rgba(139,78,163,0.12));
-  border-color: rgba(201,125,58,0.3);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent2-rgb),0.12));
+  border-color: rgba(var(--accent-rgb),0.3);
 }
 
 .logo-block {
@@ -146,8 +325,8 @@ body {
 }
 
 .sidebar-toggle:hover {
-  background: linear-gradient(135deg, rgba(201,125,58,0.18), rgba(139,78,163,0.12));
-  border-color: rgba(201,125,58,0.3);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.18), rgba(var(--accent2-rgb),0.12));
+  border-color: rgba(var(--accent-rgb),0.3);
   transform: translateY(-1px);
 }
 
@@ -184,31 +363,27 @@ body {
   letter-spacing: 0.05em;
 }
 
-.theme-toggle-group {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
+.theme-select {
+  background: var(--bg3);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--bg3);
-}
-
-.theme-toggle {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  border-radius: 999px;
-  padding: 6px 12px;
+  padding: 6px 30px 6px 14px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23c97d3a%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px top 50%;
+  background-size: 10px auto;
+  transition: border-color 0.18s ease;
 }
 
-.theme-toggle.active {
-  background: linear-gradient(135deg, rgba(201,125,58,0.18), rgba(139,78,163,0.12));
-  color: var(--text);
+.theme-select:hover, .theme-select:focus {
+  border-color: rgba(201,125,58,0.3);
 }
 
 /* ── NAV ── */
@@ -244,9 +419,9 @@ body {
 }
 
 .nav-item.active {
-  background: linear-gradient(135deg, rgba(201,125,58,0.15), rgba(139,78,163,0.1));
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.15), rgba(var(--accent2-rgb),0.1));
   color: var(--accent);
-  border: 1px solid rgba(201,125,58,0.25);
+  border: 1px solid rgba(var(--accent-rgb),0.25);
 }
 
 .nav-icon {
@@ -377,8 +552,8 @@ body {
 }
 
 .help-open-link:hover {
-  background: linear-gradient(135deg, rgba(201,125,58,0.14), rgba(139,78,163,0.1));
-  border-color: rgba(201,125,58,0.3);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb),0.14), rgba(var(--accent2-rgb),0.1));
+  border-color: rgba(var(--accent-rgb),0.3);
 }
 
 .help-embed-frame {
@@ -534,6 +709,8 @@ body {
 input[type="range"] {
   padding: 0 !important;
   -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
   height: 4px;
   background: var(--border);
   border-radius: 4px;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StemSeparator from "./components/StemSeparator";
 import VocalRemover from "./components/VocalRemover";
 import PitchShifter from "./components/PitchShifter";
@@ -46,7 +46,7 @@ const INITIAL_TOOL_STATE = {
 function initialTheme() {
   if (typeof window === "undefined") return "dark";
   const stored = window.localStorage.getItem("surtaal-theme");
-  return stored === "light" || stored === "dark" ? stored : "dark";
+  return stored || "dark";
 }
 
 function initialSidebarCollapsed() {
@@ -54,7 +54,37 @@ function initialSidebarCollapsed() {
   return window.localStorage.getItem("surtaal-sidebar-collapsed") === "true";
 }
 
+function splitNameParts(name) {
+  const raw = String(name || "audio").trim() || "audio";
+  const dotIndex = raw.lastIndexOf(".");
+  if (dotIndex <= 0 || dotIndex === raw.length - 1) {
+    return { base: raw, ext: "" };
+  }
+  return {
+    base: raw.slice(0, dotIndex),
+    ext: raw.slice(dotIndex),
+  };
+}
+
+function versionedLibraryName(name, existingItems) {
+  const { base, ext } = splitNameParts(name);
+  const existingNames = new Set(
+    (existingItems || []).map((item) => (item.display_name || item.filename || "").trim().toLowerCase())
+  );
+
+  const direct = `${base}${ext}`;
+  if (!existingNames.has(direct.toLowerCase())) return direct;
+
+  let version = 2;
+  while (true) {
+    const candidate = `${base}_v${version}${ext}`;
+    if (!existingNames.has(candidate.toLowerCase())) return candidate;
+    version += 1;
+  }
+}
+
 export default function App() {
+  const helpIframeRef = useRef(null);
   const [active, setActive] = useState(initialToolFromUrl);
   const [theme, setTheme] = useState(initialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
@@ -81,8 +111,10 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
+    const lightThemes = new Set(["light", "pearl", "warm"]);
+    document.documentElement.style.colorScheme = lightThemes.has(theme) ? "light" : "dark";
     window.localStorage.setItem("surtaal-theme", theme);
+    helpIframeRef.current?.contentWindow?.postMessage({ type: "set-theme", theme }, "*");
   }, [theme]);
 
   useEffect(() => {
@@ -159,13 +191,17 @@ export default function App() {
       });
     }
     if (!nextFile) throw new Error("No audio available to save");
+    const finalDisplayName = versionedLibraryName(displayName || nextFile.name, libraryItems);
+    const finalFile = nextFile.name === finalDisplayName
+      ? nextFile
+      : new File([nextFile], finalDisplayName, { type: nextFile.type || "audio/mpeg" });
     const item = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      display_name: displayName || nextFile.name,
-      filename: filename || nextFile.name,
+      display_name: finalDisplayName,
+      filename: filename || finalDisplayName,
       source_kind: sourceKind,
       created_at: new Date().toISOString(),
-      file: nextFile,
+      file: finalFile,
     };
     setLibraryItems((prev) => [item, ...prev]);
     return item;
@@ -250,22 +286,20 @@ export default function App() {
           >
             Help
           </button>
-          <div className="theme-toggle-group" aria-label="Theme selector">
-            <button
-              type="button"
-              className={`theme-toggle ${theme === "light" ? "active" : ""}`}
-              onClick={() => setTheme("light")}
-            >
-              Day
-            </button>
-            <button
-              type="button"
-              className={`theme-toggle ${theme === "dark" ? "active" : ""}`}
-              onClick={() => setTheme("dark")}
-            >
-              Night
-            </button>
-          </div>
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            className="theme-select"
+            aria-label="Theme selector"
+          >
+            <option value="dark">Studio Dark</option>
+            <option value="light">Studio Light</option>
+            <option value="ocean">Ableton</option>
+            <option value="sunset">Midnight Session</option>
+            <option value="forest">Analog Warm</option>
+            <option value="pearl">Clean Studio</option>
+            <option value="warm">Surtaal Classic</option>
+          </select>
           <div className="header-badge">Phase 1 · Free · Local</div>
         </div>
       </header>
@@ -387,9 +421,11 @@ export default function App() {
               </a>
             </div>
             <iframe
+              ref={helpIframeRef}
               className="help-embed-frame"
               src={helpUrl}
               title="Surtaal help guide"
+              onLoad={() => helpIframeRef.current?.contentWindow?.postMessage({ type: "set-theme", theme }, "*")}
             />
           </section>
         </div>

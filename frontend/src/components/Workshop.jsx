@@ -663,7 +663,6 @@ export default function Workshop({
 }) {
   const [playing,     setPlaying]     = useState(false);
   const [toolMode,    setToolMode]    = useState('select'); // 'select'|'hand'|'cursor'
-  const [timeLabel,   setTimeLabel]   = useState('0:00');
   const [selectedTId, setSelectedTId] = useState(null);
   const [selectedCId, setSelectedCId] = useState(null);
   const [pendingProj, setPendingProj] = useState(null);
@@ -671,29 +670,46 @@ export default function Workshop({
   const [leftPanelWidth, setLeftPanelWidth] = useState(getInitialLeftWidth);
   const [rowHeight, setRowHeight] = useState(getInitialRowHeight);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [contextMenu, setContextMenu] = useState(null);
 
-  // Spacebar play/pause
+  // Spacebar play/pause & Delete clip
   useEffect(() => {
     const onKey = (e) => {
-      if (e.code !== 'Space') return;
       // Don't intercept if user is typing in an input
-      if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return;
-      e.preventDefault();
-      if (mixer.playing) { mixer.pause(); setPlaying(false); }
-      else if (playSelectedIds.length) {
-        mixer.playSelected(playSelectedIds); setPlaying(true);
-      } else {
-        mixer.play(); setPlaying(true);
+      if (['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable) return;
+      
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (mixer.playing) { mixer.pause(); setPlaying(false); }
+        else if (playSelectedIds.length) {
+          mixer.playSelected(playSelectedIds); setPlaying(true);
+        } else {
+          mixer.play(); setPlaying(true);
+        }
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        if (selectedCId && selectedTId) {
+          e.preventDefault();
+          commitSnapshot();
+          setTracks(prev=>prev.map(t=>t.id===selectedTId
+            ? { ...t, clips:t.clips.filter(c=>c.id!==selectedCId) }
+            : t));
+          setSelectedCId(null);
+        }
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) handleRedo();
+        else handleUndo();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playSelectedIds]);
+  }, [playSelectedIds, selectedCId, selectedTId]);
 
   const zoomRef     = useRef(zoom);
   const toolModeRef = useRef('select');
   const scrollRef   = useRef(0);
   const tracksRef   = useRef(tracks);
+  const timeLabelRef = useRef(null);
   const showTaalRef = useRef(showTaal);
   const taalRef     = useRef(taal);
   const bpmRef      = useRef(bpm);
@@ -709,6 +725,40 @@ export default function Workshop({
   const timelineWrapRef = useRef(null);
   const resizingLeftPanelRef = useRef(false);
   const addMenuRef = useRef(null);
+  const undoStackRef = useRef([]);
+  const redoStackRef = useRef([]);
+  const [undoCount, setUndoCount] = useState(0);
+  const [redoCount, setRedoCount] = useState(0);
+
+  const commitSnapshot = () => {
+    const snapshot = tracksRef.current.map(t => ({ ...t, clips: t.clips.map(c => ({ ...c })) }));
+    undoStackRef.current = [...undoStackRef.current.slice(-49), snapshot];
+    redoStackRef.current = [];
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(0);
+  };
+
+  const handleUndo = () => {
+    if (!undoStackRef.current.length) return;
+    const prev = undoStackRef.current[undoStackRef.current.length - 1];
+    undoStackRef.current = undoStackRef.current.slice(0, -1);
+    const current = tracksRef.current.map(t => ({ ...t, clips: t.clips.map(c => ({ ...c })) }));
+    redoStackRef.current = [...redoStackRef.current, current];
+    setTracks(prev);
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(redoStackRef.current.length);
+  };
+
+  const handleRedo = () => {
+    if (!redoStackRef.current.length) return;
+    const next = redoStackRef.current[redoStackRef.current.length - 1];
+    redoStackRef.current = redoStackRef.current.slice(0, -1);
+    const current = tracksRef.current.map(t => ({ ...t, clips: t.clips.map(c => ({ ...c })) }));
+    undoStackRef.current = [...undoStackRef.current, current];
+    setTracks(next);
+    setUndoCount(undoStackRef.current.length);
+    setRedoCount(redoStackRef.current.length);
+  };
 
   useEffect(()=>{ zoomRef.current=zoom; },[zoom]);
   useEffect(()=>{ toolModeRef.current=toolMode; },[toolMode]);
@@ -781,7 +831,9 @@ export default function Workshop({
       const zoom   = zoomRef.current;
       const scroll = scrollRef.current;
       const ts     = tracksRef.current;
-      setTimeLabel(fmt(ph));
+      if (timeLabelRef.current) {
+        timeLabelRef.current.innerText = fmt(ph);
+      }
       drawRuler(rulerRef.current, zoom, scroll);
       ts.forEach((t,i)=>{
         const c = waveRefs.current[t.id];
@@ -800,6 +852,7 @@ export default function Workshop({
   // ── Load audio file into a clip ─────────────────────────────────────────
 
   const loadFileIntoTrack = async (trackId, file, clipOverrides={}) => {
+    commitSnapshot();
     const buf = await mixer.load(trackId, file);
     setPlaySelectedIds((prev) => (prev.includes(trackId) ? prev : [...prev, trackId]));
     const clip = makeClip({
@@ -886,6 +939,7 @@ export default function Workshop({
   };
 
   const removeTrack = (id) => {
+    commitSnapshot();
     mixer.remove(id);
     delete waveRefs.current[id];
     setTracks(prev=>prev.filter(t=>t.id!==id));
@@ -896,6 +950,7 @@ export default function Workshop({
   const clearAllTracks = () => {
     if (!tracksRef.current.length) return;
     if (typeof window !== 'undefined' && !window.confirm('Remove all tracks from the workshop?')) return;
+    commitSnapshot();
     mixer.stop();
     setPlaying(false);
     tracksRef.current.forEach((track) => {
@@ -920,6 +975,7 @@ export default function Workshop({
   const replaceClip = async (trackId, newFile) => {
     const track = tracksRef.current.find(t => t.id === trackId);
     if (!track) return;
+    commitSnapshot();
     try {
       // Stop and fully remove old audio from mixer before loading new one
       const wasPlaying = mixer.playing;
@@ -969,6 +1025,7 @@ export default function Workshop({
 
   const splitClip = ()=>{
     if (!selTrack||!selClip) return;
+    commitSnapshot();
     const ph = mixer.currentTime;
     // ph in clip-local time
     const localPh = ph - selClip.startOffset + selClip.trimStart;
@@ -1009,6 +1066,7 @@ export default function Workshop({
 
   const pasteClipboard = ()=>{
     if (!clipboard||!selectedTId) return;
+    commitSnapshot();
     const ph  = mixer.currentTime;
     const clip = makeClip({
       buffer:      clipboard.buffer,
@@ -1028,6 +1086,7 @@ export default function Workshop({
 
   const deleteClip = ()=>{
     if (!selTrack||!selClip) return;
+    commitSnapshot();
     setTracks(prev=>prev.map(t=>t.id===selectedTId
       ? { ...t, clips:t.clips.filter(c=>c.id!==selectedCId) }
       : t));
@@ -1056,6 +1115,55 @@ export default function Workshop({
     setSelectedCId(newClip.id);
   };
 
+  const copyFullClip = () => {
+    if (!selClip || !selTrack) return;
+    clipboard = {
+      buffer:    selClip.buffer,
+      waveData:  selClip.waveData,
+      duration:  selClip.duration,
+      trimStart: selClip.trimStart,
+      trimEnd:   selClip.trimEnd,
+      file:      selTrack.file,
+      trackId:   selTrack.id,
+    };
+  };
+
+  const cutFullClip = () => {
+    copyFullClip();
+    deleteClip();
+  };
+
+  const joinWithNext = () => {
+    if (!selClip || !selTrack) return;
+    commitSnapshot();
+    const clips = [...selTrack.clips].sort((a,b)=>a.startOffset-b.startOffset);
+    const idx = clips.findIndex(c=>c.id===selectedCId);
+    if (idx >= 0 && idx < clips.length-1) {
+      const nextClip = clips[idx+1];
+      // Extend current clip to cover the next clip, heal split
+      if (selClip.buffer === nextClip.buffer) {
+         setTracks(prev=>prev.map(t=>t.id===selectedTId
+           ? { ...t, clips: t.clips.map(c=>c.id===selectedCId ? {...c, trimEnd: nextClip.trimEnd} : c).filter(c=>c.id!==nextClip.id) }
+           : t));
+      } else {
+         alert("Cannot join clips from different audio sources.");
+      }
+    }
+  };
+
+  const toggleTrackMute = (tId) => {
+    const t = tracks.find(x => x.id === tId);
+    if (t) updateTrack(tId, { muted: !t.muted });
+  };
+
+  const renameTargetTrack = (tId) => {
+    const t = tracks.find(x => x.id === tId);
+    if (t) {
+      const name = window.prompt("New track name:", t.name);
+      if (name) updateTrack(tId, { name });
+    }
+  };
+
   // ── Mouse handlers ──────────────────────────────────────────────────────
 
   const makeMouse = (track) => {
@@ -1077,6 +1185,8 @@ export default function Workshop({
     return {
       onMouseDown: (e)=>{
         e.preventDefault();
+        // Clear context menu if open
+        if (contextMenu) setContextMenu(null);
         setSelectedTId(track.id);
         const sec  = toSec(e);
         const clip = hitClip(sec);
@@ -1096,11 +1206,11 @@ export default function Workshop({
 
           if (mode==='hand' || e.altKey) {
             // Hand tool always moves clip
-            dragRef.current={type:'moveClip',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.startOffset};
+            dragRef.current={type:'moveClip',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.startOffset,changed:false};
           } else if (Math.abs(cx-x0)<10) {
-            dragRef.current={type:'trimStart',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.trimStart};
+            dragRef.current={type:'trimStart',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.trimStart,changed:false};
           } else if (Math.abs(cx-x1)<10) {
-            dragRef.current={type:'trimEnd',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.trimEnd};
+            dragRef.current={type:'trimEnd',trackId:track.id,clipId:clip.id,startX:e.clientX,startVal:clip.trimEnd,changed:false};
           } else {
             // Select mode — draw selection
             const localSec = sec - clip.startOffset + clip.trimStart;
@@ -1114,12 +1224,28 @@ export default function Workshop({
         }
       },
 
+      onContextMenu: (e) => {
+        e.preventDefault();
+        setSelectedTId(track.id);
+        const sec  = toSec(e);
+        const clip = hitClip(sec);
+        if (clip) {
+          setSelectedCId(clip.id);
+          setContextMenu({ x: e.clientX, y: e.clientY, type: 'clip', trackId: track.id, clipId: clip.id });
+        } else {
+          setSelectedCId(null);
+          setContextMenu({ x: e.clientX, y: e.clientY, type: 'track', trackId: track.id });
+        }
+      },
+
       onMouseMove: (e)=>{
         const dr = dragRef.current;
         if (!dr||dr.trackId!==track.id) return;
         const dx = (e.clientX-dr.startX)/zoomRef.current;
         const clip = track.clips.find(c=>c.id===dr.clipId);
         if (!clip) return;
+
+        if (!dr.changed && dr.type !== 'select') { commitSnapshot(); dr.changed = true; }
 
         if (dr.type==='trimStart') {
           const v=Math.max(0,Math.min(dr.startVal+dx, clip.trimEnd-0.05));
@@ -1128,7 +1254,28 @@ export default function Workshop({
           const v=Math.max(clip.trimStart+0.05,Math.min(dr.startVal+dx,clip.duration));
           updateClip(track.id,dr.clipId,{trimEnd:v});
         } else if (dr.type==='moveClip') {
-          const v=Math.max(0,dr.startVal+dx);
+          let v=Math.max(0,dr.startVal+dx);
+          
+          // Magnetic alignment (snapping) to edges of other clips
+          const SNAP_PIXELS = 10;
+          const snapSec = SNAP_PIXELS / zoomRef.current;
+          let minDiff = snapSec;
+          let snappedV = null;
+          const clipLen = clip.trimEnd - clip.trimStart;
+
+          tracksRef.current.forEach(t => t.clips.forEach(c => {
+            if (c.id === dr.clipId) return;
+            const edges = [c.startOffset, c.startOffset + c.trimEnd - c.trimStart];
+            edges.forEach(p => {
+              // Try snapping left edge of moving clip to this anchor
+              if (Math.abs(v - p) < minDiff) { minDiff = Math.abs(v - p); snappedV = p; }
+              // Try snapping right edge of moving clip to this anchor
+              if (Math.abs((v + clipLen) - p) < minDiff) { minDiff = Math.abs((v + clipLen) - p); snappedV = p - clipLen; }
+            });
+          }));
+
+          if (snappedV !== null) v = Math.max(0, snappedV);
+
           updateClip(track.id,dr.clipId,{startOffset:v});
         } else if (dr.type==='select') {
           const sec     = toSec(e);
@@ -1236,10 +1383,24 @@ export default function Workshop({
 
   useEffect(() => {
     setPlaySelectedIds(prev => prev.filter(id => tracks.some(track => track.id === id)));
+    
+    // Clear phantom tracks leftover from HMR
+    if (mixer && mixer.tracks) {
+      const activeIds = new Set(tracks.map(t => t.id));
+      mixer.tracks.forEach((_, id) => {
+        if (!activeIds.has(id)) mixer.remove(id);
+      });
+    }
+
+    tracks.forEach(track => {
+      if (typeof mixer.setClips === "function") {
+        mixer.setClips(track.id, track.clips);
+      }
+    });
   }, [tracks]);
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }}>
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', overflow:'hidden' }} onClick={() => contextMenu && setContextMenu(null)}>
 
       {/* Toolbar */}
       <div style={{ display:'flex', alignItems:'center', gap:7, padding:'7px 12px',
@@ -1252,9 +1413,17 @@ export default function Workshop({
           {playing?'⏸ Pause':'▶ Play'}
         </button>
         <button className='btn-ghost' onClick={stop} title='Stop and return to beginning' style={{ padding:'5px 8px', fontSize:12 }}>⏹</button>
-        <span style={{ fontFamily:'monospace', fontSize:13, color:'var(--accent)', minWidth:52 }}>
-          {timeLabel}
+        <span ref={timeLabelRef} style={{ fontFamily:'monospace', fontSize:13, color:'var(--accent)', minWidth:52 }}>
+          0:00
         </span>
+
+        <div style={{ width:1, height:20, background:'var(--border)' }}/>
+        <button className='btn-ghost' onClick={handleUndo} disabled={undoCount === 0}
+          title={IS_MAC ? 'Undo (⌘Z)' : 'Undo (Ctrl+Z)'}
+          style={{ padding:'4px 8px', fontSize:11 }}>↩ Undo</button>
+        <button className='btn-ghost' onClick={handleRedo} disabled={redoCount === 0}
+          title={IS_MAC ? 'Redo (⌘⇧Z)' : 'Redo (Ctrl+Shift+Z)'}
+          style={{ padding:'4px 8px', fontSize:11 }}>↪ Redo</button>
 
         <div style={{ width:1, height:20, background:'var(--border)' }}/>
         {/* Tool mode */}
@@ -1430,7 +1599,8 @@ export default function Workshop({
       />
 
       {/* Timeline */}
-      <div ref={timelineWrapRef} style={{ flex:1, display:'flex', overflow:'hidden' }}>
+      <div ref={timelineWrapRef} style={{ flex:1, display:'flex', overflow:'hidden', position:'relative' }}>
+
         {tracks.length===0 ? (
           <div style={{ flex:1, display:'flex', flexDirection:'column',
             alignItems:'center', justifyContent:'center',
@@ -1527,7 +1697,15 @@ export default function Workshop({
                   background:'var(--canvas-ruler-bg)', borderBottom:'1px solid var(--border)' }}
                   onWheel={onWheel}
                   title={IS_MAC ? 'Cmd+scroll on the ruler to zoom' : 'Ctrl+scroll on the ruler to zoom'}>
-                  <canvas ref={el=>{rulerRef.current=el;if(el){el.height=24;sizeCanvas(el,24);}}}
+                  <canvas ref={el=>{
+                    if (el && rulerRef.current !== el) {
+                      rulerRef.current = el;
+                      el.height = 24;
+                      sizeCanvas(el, 24);
+                    } else if (!el) {
+                      rulerRef.current = null;
+                    }
+                  }}
                     style={{ width:'100%', height:24, display:'block' }}/>
                 </div>
 
@@ -1548,12 +1726,20 @@ export default function Workshop({
                         outline:track.id===selectedTId?`1px solid ${COLORS[idx%COLORS.length]}44`:'none',
                         position:'relative' }}>
                       <canvas
-                        ref={el=>{waveRefs.current[track.id]=el;if(el)sizeCanvas(el,rowHeight);}}
+                        ref={el=>{
+                          if (el && waveRefs.current[track.id] !== el) {
+                            waveRefs.current[track.id] = el;
+                            sizeCanvas(el, rowHeight);
+                          } else if (!el) {
+                            delete waveRefs.current[track.id];
+                          }
+                        }}
                         style={{ width: scrollEl.current ? scrollEl.current.clientWidth-1 : '100%', height:rowHeight, display:'block', cursor: toolMode==='hand'?'grab':toolMode==='cursor'?'default':'crosshair', flexShrink:0, position:'sticky', left:0 }}
                         onMouseDown={handlers.onMouseDown}
                         onMouseMove={handlers.onMouseMove}
                         onMouseUp={handlers.onMouseUp}
                         onMouseLeave={handlers.onMouseUp}
+                        onContextMenu={handlers.onContextMenu}
                       />
                       {track.clips.length===0&&(
                         <div style={{ position:'absolute', inset:0, display:'flex',
@@ -1641,6 +1827,38 @@ export default function Workshop({
                 style={{ fontSize:11 }}>Done</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Context Menu Overlay */}
+      {contextMenu && (
+        <div style={{ position: 'fixed', left: Math.min(contextMenu.x, window.innerWidth - 150), top: Math.min(contextMenu.y, window.innerHeight - 200),
+          width: 150, background: 'var(--bg2)', border: '1px solid var(--border)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.8)', zIndex: 99999,
+          display: 'flex', flexDirection: 'column', borderRadius: 8, padding: '4px 0', overflow: 'hidden' }}>
+          
+          {contextMenu.type === 'clip' ? (
+            <>
+              <div style={{ fontSize: 9, color: 'var(--muted)', padding: '4px 12px', background: 'var(--bg3)', 
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, fontWeight: 600 }}>Clip Options</div>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ splitClip(); setContextMenu(null); }}>✂️ Split Clip</button>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ cutFullClip(); setContextMenu(null); }}>X Cut Clip</button>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ copyFullClip(); setContextMenu(null); }}>📄 Copy Clip</button>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'#ff4b4b' }} onClick={()=>{ deleteClip(); setContextMenu(null); }}>🗑 Delete Clip</button>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }}/>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ joinWithNext(); setContextMenu(null); }}>🔗 Join with Next</button>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ setContextMenu(null); }}>🎛 Edit Pitch/Tempo</button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 9, color: 'var(--muted)', padding: '4px 12px', background: 'var(--bg3)', 
+                textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4, fontWeight: 600 }}>Track Options</div>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ pasteClipboard(); setContextMenu(null); }}>📋 Paste Here</button>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }}/>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ toggleTrackMute(contextMenu.trackId); setContextMenu(null); }}>🔈 Toggle Mute</button>
+              <button className='btn-ghost' style={{ textAlign:'left', padding:'6px 12px', fontSize:11, borderRadius:0, color:'var(--text)' }} onClick={()=>{ renameTargetTrack(contextMenu.trackId); setContextMenu(null); }}>✏️ Rename Track</button>
+            </>
+          )}
         </div>
       )}
     </div>

@@ -17,6 +17,8 @@ Surtaal is designed for singers, students, and musicians who want more control o
 
 ## What You Can Do
 
+**Recent Updates:** Full Theme Support (7 distinct modes), a bulletproof 6-stem extraction pipeline, and robust **Undo/Redo** history within the Audio Workshop.
+
 | Tool | What it does |
 |---|---|
 | **Stem Separator** | Extract only the stems you need, such as vocals, backing, drums, bass, guitar, piano, or other |
@@ -25,7 +27,7 @@ Surtaal is designed for singers, students, and musicians who want more control o
 | **BPM & Tempo** | Detect BPM and slow down or speed up tracks for practice |
 | **Audio Enhancement** | Clean recordings, remove hum/noise, shape frequency ranges, and add effects to selected regions |
 | **Library** | Reuse current-session outputs across tools and Workshop without re-uploading from disk |
-| **Audio Workshop** | Load tracks, save or load Workshop projects, arrange clips, and build mixes |
+| **Audio Workshop** | Load tracks, save or load projects, arrange clips with full **Undo/Redo** support, and build mixes |
 | **Medley Builder** | Stitch multiple songs with crossfades |
 | **Trim & Fade** | Cut clips, add fades, and export polished sections |
 

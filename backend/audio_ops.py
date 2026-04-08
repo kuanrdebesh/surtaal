@@ -323,7 +323,7 @@ def _demucs_profile(stems: str, quality: str) -> tuple[str, list[str], int]:
     stems = str(stems or "2")
 
     if stems == "6":
-        return "htdemucs_6s", ["--mp3-preset", "2"], 1
+        return "htdemucs_6s", ["--mp3-preset", "2", "--segment", "7", "--overlap", "0.1", "-j", "2"], 1
 
     if quality == "best":
         # htdemucs_ft is transformer-based and rejects segments longer than

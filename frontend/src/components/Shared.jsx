@@ -80,7 +80,10 @@ export function DropZone({ onFile, accept = "audio/*", label = "Drop audio file 
       <p className="drop-title" style={compact ? { fontSize: 14, marginBottom: 4 } : undefined}>{label}</p>
       <p className="drop-hint" style={compact ? { fontSize: 11 } : undefined}>MP3, WAV, FLAC, M4A supported</p>
       {file && (
-        <div className="file-selected" style={compact ? { marginTop: 10, fontSize: 11 } : undefined}>
+        <div className="file-selected" title={file.name} style={{
+          ...(compact ? { marginTop: 10, fontSize: 11 } : {}),
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%"
+        }}>
           ✓ {file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)
         </div>
       )}
@@ -145,7 +148,7 @@ export function UploadedAudioPreview({ file, label = "Uploaded Track" }) {
           src={url}
           style={{ width: "100%", height: 40 }}
         />
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+        <div title={file.name} style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "100%" }}>
           {file.name}
         </div>
       </div>
@@ -372,6 +375,7 @@ function LibraryModal({ mode = "pick", onPickFile, onClose, items: externalItems
             <div
               key={item.id}
               onClick={mode === "pick" && onPickFile ? () => pickItem(item) : undefined}
+              title={item.display_name || item.filename}
               style={{
                 padding: "12px 14px",
                 borderRadius: 12,
@@ -386,7 +390,7 @@ function LibraryModal({ mode = "pick", onPickFile, onClose, items: externalItems
               }}
             >
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div title={item.display_name || item.filename} style={{ fontWeight: 600, fontSize: 13, marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {item.display_name || item.filename}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -548,6 +552,7 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready", on
   const [playingSelected, setPlayingSelected] = useState(false);
   const [anchorFilename, setAnchorFilename] = useState(null);
   const audioRefs = useRef({});
+  const [bulkSaveItem, setBulkSaveItem] = useState(null);
 
   useEffect(() => {
     if (results.length > 0) {
@@ -586,10 +591,21 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready", on
   };
 
   const saveSelectedToLibrary = async () => {
+    if (selectedResults.length === 1) {
+      setBulkSaveItem(selectedResults[0]);
+      return;
+    }
     for (const result of selectedResults) {
       if (onSaveToLibrary) await onSaveToLibrary({ filename: result.filename, displayName: result.filename });
       else await saveExistingToLibrary(result.filename, result.filename);
     }
+  };
+
+  const doBulkSaveSingle = async (nextName) => {
+    if (!bulkSaveItem) return;
+    if (onSaveToLibrary) await onSaveToLibrary({ filename: bulkSaveItem.filename, displayName: nextName });
+    else await saveExistingToLibrary(bulkSaveItem.filename, nextName);
+    setBulkSaveItem(null);
   };
 
   const selectedAudioEls = selectedResults
@@ -670,17 +686,17 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready", on
         {results.map((r, i) => (
           <div key={i} className="result-item" style={{ flexDirection:"column", gap:8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "space-between", flexWrap: "wrap" }}>
-              <label className="result-label" style={{ display: "flex", alignItems: "center", gap: 8, cursor: selectable ? "pointer" : "default" }}>
+              <label className="result-label" style={{ display: "flex", alignItems: "center", gap: 8, cursor: selectable ? "pointer" : "default", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                 {selectable && (
                   <input
                     type="checkbox"
                     checked={!!selected[r.filename]}
                     onChange={() => toggleSelected(r.filename)}
-                    style={{ accentColor: "var(--accent)" }}
+                    style={{ accentColor: "var(--accent)", flexShrink: 0 }}
                   />
                 )}
-                <span className="result-icon">🎧</span>
-                {r.label}
+                <span className="result-icon" style={{ flexShrink: 0 }}>🎧</span>
+                <span title={r.label} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
               </label>
               {selectable && (
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -721,6 +737,18 @@ export function ResultsPanel({ results, onAddToWorkshop, title = "✓ Ready", on
           </div>
         ))}
       </div>
+      {bulkSaveItem && (
+        <TextEntryModal
+          title="Save To Library"
+          subtitle="Choose a name for this audio in the current session library."
+          initialValue={bulkSaveItem.filename}
+          confirmLabel="Save"
+          onClose={() => setBulkSaveItem(null)}
+          onConfirm={async (nextName) => {
+            await doBulkSaveSingle(nextName);
+          }}
+        />
+      )}
     </div>
   );
 }
